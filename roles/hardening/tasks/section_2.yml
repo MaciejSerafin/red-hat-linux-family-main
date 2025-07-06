@@ -1,0 +1,606 @@
+---
+
+- name: "2.1.1 Ensure autofs services are not in use"
+  dnf:
+    name: autofs
+    state: absent
+  when:
+    - rule_2_1_1
+  tags:
+    - level1_server
+    - s2
+    - r2.1.1
+
+- name: "2.1.2 Ensure avahi daemon services are not in use"
+  block:
+    - name: "2.1.2 Ensure avahi daemon services are not in use | stop services"
+      systemd:
+        name: "{{item}}"
+        state: stopped
+      failed_when: no
+      with_items:
+        - avahi-daaemon.service
+        - avahi-daemon.socket
+      ignore_errors: yes
+    - name: "2.1.2 Ensure avahi daemon services are not in use | uninstall"
+      dnf:
+        name: avahi
+        state: absent
+      ignore_errors: yes
+  when:
+    - rule_2_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s2
+    - r2.1.2
+
+- name: "2.1.3 Ensure dhcp server services are not in use"
+  dnf:
+    name: dhcp-server
+    state: absent
+  ignore_errors: yes
+  when:
+    - rule_2_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.3
+
+- name: "2.1.4 Ensure dns server services are not in use"
+  dnf:
+    name: bind
+    state: absent
+  when:
+    - rule_2_1_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.4      
+    
+- name: "2.1.5 Ensure dnsmasq is not installed"
+  dnf:
+    name: dnsmasq
+    state: absent
+  when:
+    - rule_2_1_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.5   
+
+- name: "2.1.6 Ensure samba file server services are not in use"
+  dnf:
+    name: samba
+    state: absent
+  when:
+    - rule_2_1_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.6
+
+- name: "2.1.7 Ensure ftp server services are not in use"
+  dnf:
+    name: vsftpd
+    state: absent
+  when:
+    - rule_2_1_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.7  
+    
+- name: "2.1.8 Ensure message access server services are not in use"
+  dnf:
+    pkg: 
+      - dovecot
+      - cyrus-imapd
+    state: absent
+  when:
+    - rule_2_1_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.8
+
+- name: "2.1.9 Ensure network file system services are not in use"
+  dnf:
+    name: nfs-utils
+    state: absent
+  when:
+    - rule_2_1_9
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.9
+   
+- name: "2.1.10 Ensure nis server services are not in use"
+  dnf:
+    name: ypserv
+    state: absent
+  when:
+    - rule_2_1_10
+  tags:
+    - level1_server
+    - s2
+    - r2.1.10
+
+- name: "2.1.11 Ensure print server services are not in use"
+  dnf:
+    name: cups
+    state: absent
+  when:
+    - rule_2_1_11
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.11  
+
+- name: "2.1.12 Ensure rpcbind services are not in use"
+  dnf:
+    name: rpcbind
+    state: absent
+  when:
+    - rule_2_1_12
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.12 
+
+- name: "2.1.13 Ensure rsync services are not in use"
+  dnf:
+    name: rsync-daemon
+    state: absent
+  when:
+    - rule_2_1_13
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.13       
+
+- name: "2.1.14 Ensure snmp services are not in use"
+  dnf:
+    name: net-snmp
+    state: absent
+  when:
+    - rule_2_1_14
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.14
+
+- name: "2.1.15 Ensure telnet server services are not in use"
+  dnf:
+    name: telnet-server
+    state: absent
+  when:
+    - rule_2_1_15
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.15 
+        
+- name: "2.1.16 Ensure tftp server services are not in use"
+  dnf:
+    name: tftp-server
+    state: absent
+  when:
+    - rule_2_1_16
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.16
+    
+- name: "2.1.17 Ensure web proxy server services are not in use"
+  dnf:
+    name: squid
+    state: absent
+  when:
+    - rule_2_1_17
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.17
+
+- name: "2.1.18 Ensure web server services are not in use"
+  dnf:
+    name: "{{item}}"
+    state: absent
+  with_items:
+    - httpd
+    - nginx
+  when:
+    - rule_2_1_18
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.18     
+
+- name: "2.1.19 Ensure xinetd services are not in use"
+  dnf:
+    name: xinetd
+    state: absent
+  when:
+    - rule_2_1_19
+  tags:
+    - level1_server
+    - s2
+    - r2.1.19
+
+- name: "2.1.20 Ensure X window server services are not in use"
+  dnf:
+    name: xorg-x11-server-common
+    state: absent
+  when:
+    - rule_2_1_20
+  tags:
+    - level1_server
+    - s2
+    - r2.1.20
+
+- name: "2.1.21 Ensure mail transfer agents are configured for local-only mode"
+  lineinfile:
+    path: /etc/postfix/main.cf
+    regexp: "^inet_interfaces.*=.*$"
+    line: "inet_interfaces = loopback-only"
+  notify: restart postfix
+  ignore_errors: yes
+  when:
+    - rule_2_1_21
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1.21
+
+- name: "2.1.22 Ensure only approved services are listening on a network interface"
+  block:
+    - name: "2.1.22 Ensure only approved services are listening on a network interface"
+      shell: |
+        lsof -i -P -n | grep -v "(ESTABLISHED)"
+      register: non_status
+      failed_when: no
+      changed_when: no
+    - name: "2.1.22 Ensure only approved services are listening on a network interface"
+      fail:
+        msg: "{{non_status.stdout}}"
+  ignore_errors: yes
+  when:
+    - rule_2_1_22
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.1_22  
+
+- name: "2.2.1 Ensure ftp client is not installed"
+  dnf:
+    name: ftp
+    state: absent
+  when:
+    - rule_2_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.2.1
+
+- name: "2.2.2 Ensure ldap client is not installed"
+  dnf:
+    name: openldap-clients
+    state: absent
+  when:
+    - rule_2_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.2.2
+
+- name: "2.2.3 Ensure nis client is not installed"
+  dnf:
+    name: ypbind
+    state: absent
+  when:
+    - rule_2_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.2.3
+
+- name: "2.2.4 Ensure telnet client is not installed"
+  dnf:
+    name: telnet
+    state: absent
+  when:
+    - rule_2_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.2.4
+    
+- name: "2.2.5 Ensure tftp client is not installed"
+  dnf:
+    name: tftp
+    state: absent
+  when:
+    - rule_2_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s2
+    - r2.2.5
+    
+- name: "2.3.1 Ensure time synchronization is in use"
+  dnf:
+    name: chrony
+    state: present
+  when:
+    - rule_2_3_1
+    - time_sync_daemon == 'chrony'
+  tags:
+    - level1_workstation
+    - level1_server
+    - s2
+    - r2.3.1
+    - chrony
+      
+- name: "2.3.2 Ensure chrony is configured"
+  block:
+    - name: "2.3.2 Ensure /etc/chrony.d/ directory exists"
+      file:
+        path: /etc/chrony.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: "2.3.2 Ensure chrony configuration file is created"
+      lineinfile:
+        path: /etc/chrony.d/hardening.conf
+        line: "pool {{ item }}"
+        create: yes
+        owner: root
+        group: root
+        mode: '0644'
+      with_items:
+        - "{{ chrony_pools }}"
+      when: item != None
+
+    - name: "2.3.2 Ensure chrony configuration file is created"
+      lineinfile:
+        path: /etc/chrony.d/hardening.conf
+        line: "server {{ item }}"
+        create: yes
+        owner: root
+        group: root
+        mode: '0644'
+      with_items:
+        - "{{ chrony_servers }}"
+      when: item != None
+
+  when:
+    - rule_2_3_2
+    - time_sync_daemon == 'chrony'
+  tags:
+    - level1_workstation
+    - level1_server
+    - s2
+    - r2.3.2
+    - chrony
+
+- name: "2.3.3 Ensure chrony is not run as the root user"
+  block:
+    - name: "Remove '-u root' from OPTIONS in /etc/sysconfig/chronyd"
+      replace:
+        path: /etc/sysconfig/chronyd
+        regexp: '^(OPTIONS=".*)\s-u root(.*")$'
+        replace: '\1\2'
+  notify: restart chronyd
+  when:
+    - rule_2_3_3
+    - time_sync_daemon == 'chrony'
+  tags:
+    - level1_workstation
+    - level1_server
+    - s2
+    - r2.3.3
+    - chrony
+
+
+- name: "2.4.1.1 Ensure cron daemon is enabled and active"
+  systemd:
+    name: crond
+    enabled: yes
+    state: started
+  when:
+    - rule_2_4_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.1
+    - s2
+    
+- name: "2.4.1.2 Ensure permissions on /etc/crontab are configured"
+  file:
+    dest: /etc/crontab
+    owner: root
+    group: root
+    mode: 0600
+  when:
+    - rule_2_4_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.2
+    - s2
+    
+- name: "2.4.1.3 Ensure permissions on /etc/cron.hourly are configured"
+  file:
+    dest: /etc/cron.hourly
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  when:
+    - rule_2_4_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.3
+    - s2
+
+- name: "2.4.1.4 Ensure permissions on /etc/cron.daily are configured"
+  file:
+    dest: /etc/cron.daily
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  when:
+    - rule_2_4_1_4    
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.4
+    - s2
+    
+- name: "2.4.1.5 Ensure permissions on /etc/cron.weekly are configured"
+  file:
+    dest: /etc/cron.weekly
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  when:
+    - rule_2_4_1_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.5
+    - s2
+    
+- name: "2.4.1.6 Ensure permissions on /etc/cron.monthly are configured"
+  file:
+    dest: /etc/cron.monthly
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  when:
+    - rule_2_4_1_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.6
+    - s2
+
+- name: "2.4.1.7 Ensure permissions on /etc/cron.d are configured"
+  file:
+    dest: /etc/cron.d
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  when:
+    - rule_2_4_1_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.7
+    - s2
+
+- name: "2.4.1.8 | Ensure crontab is restricted to authorized users"
+  block:
+    - name: "2.4.1.8 | Check if /etc/cron.deny exists"
+      stat:
+        path: "/etc/cron.deny"
+      register: cron_deny_status
+
+    - name: "2.4.1.8 | Set owner and permissions if /etc/cron.deny exists"
+      shell: |
+        [ -e "/etc/cron.deny" ] && chown root:root /etc/cron.deny
+        [ -e "/etc/cron.deny" ] && chmod u-x,g-wx,o-rwx /etc/cron.deny
+      when: cron_deny_status.stat.exists
+      changed_when: true
+
+
+    - name: "2.4.1.8 | Check if cron.allow exists "
+      stat:
+        path: "/etc/cron.allow"
+      register: cron_allow
+
+    - name: "2.4.1.8 | Ensure crontab is restricted to authorized users"
+      file:
+        dest: /etc/cron.allow
+        state: '{{ "file" if  cron_allow.stat.exists else "touch"}}'
+        owner: root
+        group: root
+        mode: 0600
+  when:
+    - rule_2_4_1_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.1.8
+    - s2
+
+- name: "2.4.2.1 | Ensure at is restricted to authorized users"
+  block:
+    - name: "2.4.2.1 | Check if at.allow exists"
+      stat:
+        path: "/etc/at.allow"
+      register: at_allow
+
+    - name: "2.4.2.1 Ensure at is restricted to authorized users"
+      file:
+        dest: /etc/at.allow
+        state: '{{ "file" if  at_allow.stat.exists else "touch"}}'
+        owner: root
+        group: root
+        mode: 0600
+
+    - name: " 2.4.2.1 Check if /etc/at.deny exists"
+      stat:
+        path: "/etc/at.deny"
+      register: at_deny_status
+
+    - name: " 2.4.2.1 Set owner, group, and permissions if /etc/at.deny exists"
+      shell: |
+        if getent group daemon > /dev/null 2>&1; then
+          l_group="daemon"
+        else
+          l_group="root"
+        fi
+        
+        if [ -e "/etc/at.deny" ]; then
+          chown root:"$l_group" /etc/at.deny
+          chmod 640 /etc/at.deny
+        fi
+      when: at_deny_status.stat.exists
+      changed_when: true
+  when:
+    - rule_2_4_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r2.4.2.1
+    - s2

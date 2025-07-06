@@ -1,0 +1,68 @@
+---
+# tasks file for cis-oracle
+
+- name: Check ansible version
+  fail:
+    msg: You must use ansible 2.9 or greater!
+  when: not ansible_version.full is version_compare('2.9', '>=')
+  tags:
+    - always
+
+
+- name: Creating user "{{ uusername }}" with admin access
+  user: 
+    name: "{{ uusername }}"
+    password: "{{ upassword | password_hash('sha512') }}"
+    groups: wheel
+    append: yes
+  when:
+    - create_user
+
+- include_tasks: section_1.yml
+  # become: true
+  when: section_1
+  tags:
+    - always
+    - section_1
+
+- include_tasks: section_2.yml
+  # become: true
+  when: section_2
+  tags:
+    - always
+    - section_2
+
+- include_tasks: section_3.yml
+  # become: true
+  when: section_3 
+  tags:
+    - always
+    - section_3
+
+- include_tasks: section_4.yml
+  # become: true
+  when: section_4
+  tags:
+    - always
+    - section_4
+
+- include_tasks: section_5.yml
+  # become: true
+  when: section_5 
+  tags:
+    - always
+    - section_5
+
+- include_tasks: section_6.yml
+  # become: true
+  when: section_6 
+  tags:
+    - always
+    - section_6
+    
+- include_tasks: section_7.yml
+  # become: true
+  when: section_7
+  tags:
+    - always
+    - section_7

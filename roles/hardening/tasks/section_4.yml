@@ -1,0 +1,199 @@
+---
+      
+- name: "4.1.1 Ensure nftables is installed"
+  block:
+    - name: "4.1.1 Ensure nftables is installed | Install"
+      dnf:
+        name: nftables
+        state: present
+        
+    - name: "4.1.1 Ensure nftables is installed | Enable"  
+      systemd:
+        name: nftables
+        enabled: true
+        masked: false
+        state: started
+        daemon_reload: true
+  rescue:
+    - name: "4.1.1 Ensure nftables is installed | run manually"
+      shell: sudo systemctl enable nftables --now
+  when:
+    - rule_4_1_1
+    - firewall_name == 'nftables' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.1.1
+    - nftables   
+    
+- name: "4.1.2 Ensure a single firewall configuration utility is in use"
+  block:
+    - name: "4.1.2 Ensure a single firewall configuration utility is in use | firewalld"
+      systemd:
+        name: nftables
+        state: stopped
+        masked: yes
+        daemon_reload: true
+      when:
+        - firewall_name == 'firewalld'
+        
+    - name: "4.1.2 Ensure a single firewall configuration utility is in use | nftables"
+      systemd:
+        name: firewalld
+        state: stopped
+        masked: yes
+        daemon_reload: true
+      when:
+        - firewall_name == 'nftables'
+        
+    - name: "4.1.2 Ensure a single firewall configuration utility is in use | run firewalld"
+      systemd:
+        name: firewalld
+        state: started
+        masked: no
+        enabled: true
+        daemon_reload: true
+      when:
+        - firewall_name == 'firewalld'
+  rescue:
+    - name: "4.1.2 Ensure a single firewall configuration utility is in use | run manually"
+      shell: sudo systemctl disable nftables --now
+      when:
+        - firewall_name == 'firewalld'
+    - name: "4.1.2 Ensure a single firewall configuration utility is in use | run manually"
+      shell: sudo systemctl disable firewalld --now
+      when:
+        - firewall_name == 'nftables'
+  when:
+    - rule_4_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.1.2
+    - nftables
+    - firewalld
+    
+- name: "4.2.1 Ensure firewalld drops unnecessary services and ports"
+  block:
+    - name: "4.2.1 Ensure firewalld drops unnecessary services and ports"
+      shell:  |
+        systemctl is-enabled firewalld.service | grep -q 'enabled' && firewall-cmd --list-all --zone="$(firewall-cmd --list-all | awk '/\(active\)/ { print $1 }')" | grep -P -- '^\h*(services:|ports:)'
+      register: firewalld_ports
+      failed_when: no
+      changed_when: no
+    - name: "4.2.1 Ensure firewalld drops unnecessary services and ports"
+      fail:
+        msg: "{{firewalld_ports.stdout}}"
+  ignore_errors: yes
+  when:
+    - rule_4_2_1
+    - firewall_name == 'firewalld' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.2.1
+    - firewalld      
+      
+- name: "4.2.2 Ensure host based firewall loopback traffic is configured"
+  block:
+    - name: "4.2.2 Ensure host based firewall loopback traffic is configured for firewalld"
+      shell: |
+        {
+          firewall-cmd --permanent --zone=trusted --add-interface=lo
+          firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address="127.0.0.1" destination not address="127.0.0.1" drop'
+          firewall-cmd --permanent --zone=trusted --add-rich-rule='rule family=ipv4 source address="127.0.0.1" destination not address="127.0.0.1" drop'
+          firewall-cmd --permanent --add-rich-rule='rule family=ipv6 source address="::1" destination not address="::1" drop'
+          firewall-cmd --permanent --zone=trusted --add-rich-rule='rule family=ipv6 source address="::1" destination not address="::1" drop'
+          firewall-cmd --reload
+        }
+      when:
+        - firewall_name == 'firewalld'
+  when:
+    - rule_4_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.2.2
+    - firewalld
+  
+- name: "4.3.1 Ensure nftables base chains exist"
+  shell: |
+    nft create chain inet {{nftables_tableName}} {{item}} { type filter hook {{item}} priority 0 \; }
+  with_items:
+    - input
+    - forward
+    - output
+  when:
+    - rule_4_3_1
+    - firewall_name == 'nftables'
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.1
+
+- name: "4.3.2 Ensure nftables established connections are configured"
+  block:
+    - name: "4.3.2 Ensure nftables established connections are configured"
+      shell:  |
+        systemctl is-enabled nftables.service | grep -q 'enabled' && nft list ruleset | awk '/hook input/,/}/' | grep 'ct state'
+      register: nftables_connections
+      failed_when: no
+      changed_when: no
+    - name: "4.3.2 Ensure nftables established connections are configured"
+      fail:
+        msg: "{{nftables_connections.stdout}}"
+  ignore_errors: yes
+  when:
+    - rule_4_3_2
+    - firewall_name == 'nftables' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.2
+    - nftables 
+    
+- name: "4.3.3 Ensure nftables default deny firewall policy"
+  shell: |
+    nft chain inet {{nftables_tableName}} {{item}} { policy drop \; }
+  with_items:
+    - input
+    - forward
+    - output
+  when:
+    - rule_4_3_3
+    - firewall_name == 'nftables'
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.3
+    - nftables 
+      
+- name: "4.3.4 Ensure nftables loopback traffic is configured"
+  block:
+    - name: "4.3.4 Ensure nftables loopback traffic is configured"
+      shell: |
+        {
+          nft add rule inet filter input iif lo accept
+          nft add rule inet filter input ip saddr 127.0.0.0/8 counter drop
+          nft add rule inet filter input ip6 saddr ::1 counter drop
+        }
+      when:
+        - firewall_name == 'nftables'
+  when:
+    - rule_4_3_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.4
+    - nftables
+
+    
+    

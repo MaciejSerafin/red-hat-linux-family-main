@@ -1,0 +1,58 @@
+---
+- name: "dconf update"
+  become: yes
+  command: dconf update
+  
+  
+- name: "restart postfix"
+  become: yes
+  command: systemctl restart postfix
+  
+- name: load rules
+  become: yes  
+  command: augenrules --load
+  
+  
+- name: restart auditd
+  become: yes  
+  command: service auditd restart
+
+- name: reload sshd
+  become: yes
+  command: systemctl reload sshd
+  
+- name: authselect apply
+  become: yes
+  command: authselect apply-changes
+  
+- name: "restart journald"
+  become: yes
+  command: systemctl restart systemd-journald 
+  
+- name: "restart rsyslog"
+  become: yes
+  command: systemctl restart rsyslog
+  
+- name: "chage user"
+  become: yes
+  command: "chage --maxdays {{ password_policy['max_days'] }} {{ login_user }}"
+  
+- name: "restart sshd"
+  become: yes
+  command: systemctl restart sshd
+
+- name: "update crypto policies"
+  become: yes
+  command: update-crypto-policies
+
+- name: "restart chronyd"
+  become: yes
+  command: systemctl restart chronyd
+
+- name: "apply authselect changes"
+  become: yes
+  command: authselect apply-changes
+
+- name: "update crypto policy"
+  become: yes
+  command: "update-crypto-policies --set {{ crypto_policy }}"

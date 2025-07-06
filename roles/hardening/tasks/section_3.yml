@@ -1,0 +1,520 @@
+---
+- name: "3.1.1 Ensure IPv6 status is identified"
+  block:
+    - name: "3.1.1 Ensure IPv6 status is identified"
+      shell: grep -Pqs '^\h*0\b' /sys/module/ipv6/parameters/disable && echo -e "\n -IPv6 is enabled\n" || echo -e "\n - IPv6 is not enabled\n"
+      register: ipv6_return
+      changed_when: no
+      ignore_errors: yes
+      
+    - name: "Set ipv6 status"
+      set_fact:
+        ipv6_active: true
+      when:
+        - "'IPv6 is enabled' in ipv6_return.stdout"
+        
+    - name: "Set ipv6 status"
+      set_fact:
+        ipv6_active: false
+      when:
+        - "'IPv6 is enabled' not in ipv6_return.stdout"  
+  when:
+    - rule_3_1_1
+  tags:
+    - level1_server
+    - level2_workstation
+    - s3
+    - r3.1.1
+
+- name: "3.1.2 Ensure wireless interfaces are disabled"
+  script: 
+    cmd: rule_3_1_2.sh
+  register: script_return
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_3_1_2
+  tags:
+    - level1_server
+    - level2_workstation
+    - s3
+    - r3.1.2
+
+- name: "3.1.3 Ensure bluetooth services are not in use"
+  dnf:
+    name: bluez
+    state: absent
+  when:
+    - rule_3_1_3
+  tags:
+    - level1_server
+    - level2_workstation
+    - s3
+    - r3.1.3
+      
+- name: "3.2.1 Ensure dccp kernel module is not available"
+  block:
+    - name: "3.2.1 Ensure dccp kernel module is not available | Set install to /bin/false"
+      lineinfile:
+        dest: /etc/modprobe.d/dccp.conf
+        regexp: "^(#)?install dccp(\\s|$)"
+        line: "install dccp /bin/false"
+        create: yes
+        
+    - name: "3.2.1 Ensure dccp kernel module is not available | Blacklist"
+      lineinfile:
+        dest: /etc/modprobe.d/dccp.conf
+        regexp: "^(#)?blacklist dccp(\\s|$)"
+        line: "blacklist dccp"
+        create: yes
+        
+    - name: "3.2.1 Ensure dccp kernel module is not available | Remove with modprobe"
+      modprobe:
+        name: dccp
+        state: absent
+      ignore_errors: yes
+  when:
+    - rule_3_2_1
+  tags:
+    - level2_server
+    - level2_workstation
+    - s3
+    - r3.2.1    
+    
+- name: "3.2.2 Ensure tipc kernel module is not available"
+  block:
+    - name: "3.2.2 Ensure tipc kernel module is not available | Set install to /bin/false"
+      lineinfile:
+        dest: /etc/modprobe.d/tipc.conf
+        regexp: "^(#)?install tipc(\\s|$)"
+        line: "install tipc /bin/false"
+        create: yes
+        
+    - name: "3.2.2 Ensure tipc kernel module is not available | Blacklist"
+      lineinfile:
+        dest: /etc/modprobe.d/tipc.conf
+        regexp: "^(#)?blacklist tipc(\\s|$)"
+        line: "blacklist tipc"
+        create: yes
+        
+    - name: "3.2.2 Ensure tipc kernel module is not available | Remove with modprobe"
+      modprobe:
+        name: tipc
+        state: absent
+      ignore_errors: yes
+  when:
+    - rule_3_2_2
+  tags:
+    - level2_server
+    - level2_workstation
+    - s3
+    - r3.2.2
+    
+- name: "3.2.3 Ensure rds kernel module is not available"
+  block:
+    - name: "3.2.3 Ensure rds kernel module is not available | Set install to /bin/false"
+      lineinfile:
+        dest: /etc/modprobe.d/rds.conf
+        regexp: "^(#)?install rds(\\s|$)"
+        line: "install rds /bin/false"
+        create: yes
+        
+    - name: "3.2.3 Ensure rds kernel module is not available | Blacklist"
+      lineinfile:
+        dest: /etc/modprobe.d/rds.conf
+        regexp: "^(#)?blacklist rds(\\s|$)"
+        line: "blacklist rds"
+        create: yes
+        
+    - name: "3.2.3 Ensure rds kernel module is not available | Remove with modprobe"
+      modprobe:
+        name: rds
+        state: absent
+      ignore_errors: yes
+  when:
+    - rule_3_2_3
+  tags:
+    - level2_server
+    - level2_workstation
+    - s3
+    - r3.2.3
+
+- name: "3.2.4 Ensure sctp kernel module is not available"
+  block:
+    - name: "3.2.4 Ensure sctp kernel module is not available | Set install to /bin/false"
+      lineinfile:
+        dest: /etc/modprobe.d/sctp.conf
+        regexp: "^(#)?install sctp (\\s|$)"
+        line: "install sctp  /bin/false"
+        create: yes
+        
+    - name: "3.2.4 Ensure sctp kernel module is not available | Blacklist"
+      lineinfile:
+        dest: /etc/modprobe.d/sctp.conf
+        regexp: "^(#)?blacklist sctp (\\s|$)"
+        line: "blacklist sctp "
+        create: yes
+        
+    - name: "3.2.4 Ensure sctp kernel module is not available | Remove with modprobe"
+      modprobe:
+        name: sctp 
+        state: absent
+      ignore_errors: yes
+  when:
+    - rule_3_2_4
+  tags:
+    - level2_server
+    - level2_workstation
+    - s3
+    - r3.2.4
+
+- name: "3.3.1 Ensure IP forwarding is disabled"
+  block:
+    - name: "3.3.1 Ensure IP forwarding is disabled | config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "^net.ipv4.ip_forward.*$"
+        line: "net.ipv4.ip_forward = 0"
+        create: yes
+        
+    - name: "3.3.1 Ensure IP forwarding is disabled | config file ipv6"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv6_sysctl.conf
+        regexp: "^net.ipv6.conf.all.forwarding.*$"
+        line: "net.ipv6.conf.all.forwarding = 0"
+        create: yes
+      when:
+        - ipv6_active
+        
+    - name: "3.3.1 Ensure IP forwarding is disabled | active parameters ipv4"
+      shell: |
+        {
+         sysctl -w net.ipv4.ip_forward=0
+         sysctl -w net.ipv4.route.flush=1
+        }
+        
+    - name: "3.3.1 Ensure IP forwarding is disabled | active parameters ipv6"
+      shell: |
+        {
+         sysctl -w net.ipv6.conf.all.forwarding=0
+         sysctl -w net.ipv6.route.flush=1
+        }
+      when:
+        - ipv6_active
+  when:
+    - rule_3_3_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.1
+    
+- name: "3.3.2 Ensure packet redirect sending is disabled"
+  block:
+    - name: "3.3.2 Ensure packet redirect sending is disabled"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        create: yes
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}" 
+      with_items:
+        - { regex: "^net.ipv4.conf.all.send_redirects.*", line: "net.ipv4.conf.all.send_redirects = 0"}
+        - { regex: "^net.ipv4.conf.default.send_redirects.*", line: "net.ipv4.conf.default.send_redirects = 0"}
+        
+    - name: "3.3.2 Ensure packet redirect sending is disabled"    
+      shell:  |
+        {
+          sysctl -w net.ipv4.conf.all.send_redirects=0
+          sysctl -w net.ipv4.conf.default.send_redirects=0
+          sysctl -w net.ipv4.route.flush=1
+        }
+  when:
+    - rule_3_3_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.2
+        
+- name: "3.3.3 Ensure bogus ICMP responses are ignored"
+  block:
+    - name: "3.3.3 Ensure bogus ICMP responses are ignored | config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.icmp_ignore_bogus_error_responses.*", line: "net.ipv4.icmp_ignore_bogus_error_responses=1"}
+        
+    - name: "3.3.3 Ensure bogus ICMP responses are ignored | active parameters ipv4"
+      shell: |
+       {
+         sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1
+         sysctl -w net.ipv4.route.flush=1
+       }
+  when:
+    - rule_3_3_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.3       
+        
+- name: "3.3.4 Ensure broadcast ICMP requests are ignored"
+  block:
+    - name: "3.3.4 Ensure broadcast ICMP requests are ignored | config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.icmp_echo_ignore_broadcasts.*", line: "net.ipv4.icmp_echo_ignore_broadcasts=1"}
+    - name: "3.3.4 Ensure broadcast ICMP requests are ignored | active parameters ipv4"
+      shell: |
+       {
+         sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1
+         sysctl -w net.ipv4.route.flush=1
+       }
+  when:
+    - rule_3_3_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.4
+
+- name: "3.3.5 Ensure ICMP redirects are not accepted"
+  block:
+    - name: "3.3.5 Ensure ICMP redirects are not accepted| config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.conf.all.accept_redirects.*", line: "net.ipv4.conf.all.accept_redirects = 0"}
+        - { regex: "^net.ipv4.conf.default.accept_redirects.*", line: "net.ipv4.conf.default.accept_redirects = 0"}
+        
+    - name: "3.3.5 Ensure ICMP redirects are not accepted | config file ipv6"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv6_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv6.conf.all.accept_redirects.*", line: "net.ipv6.conf.all.accept_redirects = 0"}
+        - { regex: "^net.ipv6.conf.default.accept_redirects.*", line: "net.ipv6.conf.default.accept_redirects = 0"}
+      when:
+        - ipv6_active
+        
+    - name: "3.3.5 Ensure ICMP redirects are not accepted| active parameters ipv4"
+      shell: |
+        {
+         sysctl -w net.ipv4.conf.all.accept_redirects=0
+         sysctl -w net.ipv4.conf.default.accept_redirects=0
+         sysctl -w net.ipv4.route.flush=1
+
+        }
+        
+    - name: "3.3.5 Ensure ICMP redirects are not accepted| active parameters ipv6"
+      shell: |
+        {
+         sysctl -w net.ipv6.conf.all.accept_redirects=0
+         sysctl -w net.ipv6.conf.default.accept_redirects=0
+         sysctl -w net.ipv6.route.flush=1
+        }
+      when:
+        - ipv6_active
+  when:
+    - rule_3_3_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.5
+        
+- name: "3.3.6 Ensure secure ICMP redirects are not accepted"
+  block:
+    - name: "3.3.6 Ensure secure ICMP redirects are not accepted| config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.conf.all.secure_redirects.*", line: "net.ipv4.conf.all.secure_redirects = 0"}
+        - { regex: "^net.ipv4.conf.default.secure_redirects.*", line: "net.ipv4.conf.default.secure_redirects = 0"}
+        
+    - name: "3.3.6 Ensure secure ICMP redirects are not accepted| active parameters ipv4"
+      shell: |
+        {
+         sysctl -w net.ipv4.conf.all.secure_redirects=0
+         sysctl -w net.ipv4.conf.default.secure_redirects=0
+         sysctl -w net.ipv4.route.flush=1
+        }
+  when:
+    - rule_3_3_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.6
+
+- name: "3.3.7 Ensure Reverse Path Filtering is enabled"
+  block:
+    - name: "3.3.7 Ensure Reverse Path Filtering is enabled| config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.conf.all.rp_filter.*", line: "net.ipv4.conf.all.rp_filter=1"}
+        - { regex: "^net.ipv4.conf.default.rp_filter.*", line: "net.ipv4.conf.default.rp_filter=1"}
+        
+    - name: "3.3.7 Ensure Reverse Path Filtering is enabled | active parameters ipv4"
+      shell: |
+       {
+         sysctl -w net.ipv4.conf.all.rp_filter=1
+         sysctl -w net.ipv4.conf.default.rp_filter=1
+         sysctl -w net.ipv4.route.flush=1
+       }
+  when:
+    - rule_3_3_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.7
+       
+- name: "3.3.8 Ensure source routed packets are not accepted"
+  block:
+    - name: "3.3.8 Ensure source routed packets are not accepted| config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.conf.all.accept_source_route.*", line: "net.ipv4.conf.all.accept_source_route = 0"}
+        - { regex: "^net.ipv4.conf.default.accept_source_route.*", line: "net.ipv4.conf.default.accept_source_route = 0"}
+        
+    - name: "3.3.8 Ensure source routed packets are not accepted | config file ipv6"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv6_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv6.conf.all.accept_source_route.*", line: "net.ipv6.conf.all.accept_source_route = 0"}
+        - { regex: "^net.ipv6.conf.default.accept_source_route.*", line: "net.ipv6.conf.default.accept_source_route = 0"}
+      when:
+        - ipv6_active
+        
+    - name: "3.3.8 Ensure source routed packets are not accepted| active parameters ipv4"
+      shell: |
+        {
+         sysctl -w net.ipv4.conf.all.accept_source_route=0
+         sysctl -w net.ipv4.conf.default.accept_source_route=0
+         sysctl -w net.ipv4.route.flush=1
+        }
+        
+    - name: "3.3.8 Ensure source routed packets are not accepted | active parameters ipv6"
+      shell: |
+        {
+         sysctl -w net.ipv6.conf.all.accept_source_route=0
+         sysctl -w net.ipv6.conf.default.accept_source_route=0
+         sysctl -w net.ipv6.route.flush=1
+        }
+      when:
+        - ipv6_active
+  when:
+    - rule_3_3_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.8
+       
+- name: "3.3.9 Ensure suspicious packets are logged"
+  block:
+    - name: "3.3.9 Ensure suspicious packets are logged config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.conf.all.log_martians.*", line: "net.ipv4.conf.all.log_martians=1"}
+        - { regex: "^net.ipv4.conf.default.log_martians.*", line: "net.ipv4.conf.default.log_martians=1"}
+        
+    - name: "3.3.9 Ensure suspicious packets are logged | active parameters ipv4"
+      shell: |
+       {
+         sysctl -w net.ipv4.conf.all.log_martians=1
+         sysctl -w net.ipv4.conf.default.log_martians=1
+         sysctl -w net.ipv4.route.flush=1
+       }
+  when:
+    - rule_3_3_9
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.9
+    
+- name: "3.3.10 Ensure TCP SYN Cookies is enabled"
+  block:
+    - name: "3.3.10 Ensure TCP SYN Cookies is enabled | config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv4.tcp_syncookies.*", line: "net.ipv4.tcp_syncookies=1"}
+        
+    - name: "3.3.10 Ensure TCP SYN Cookies is enabled | active parameters ipv4"
+      shell: |
+       {
+         sysctl -w net.ipv4.tcp_syncookies=1
+         sysctl -w net.ipv4.route.flush=1
+       }
+  when:
+    - rule_3_3_10
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.10
+  
+- name: "3.3.11 Ensure IPv6 router advertisements are not accepted"
+  block:
+    - name: "3.3.11 Ensure IPv6 router advertisements are not accepted | config file ipv4"
+      lineinfile:
+        path: /etc/sysctl.d/60-netipv4_sysctl.conf
+        regexp: "{{item.regex}}"
+        line: "{{item.line}}"
+        create: yes
+      with_items:
+        - { regex: "^net.ipv6.conf.all.accept_ra.*", line: "net.ipv6.conf.all.accept_ra=0"}
+        - { regex: "^net.ipv6.conf.default.accept_ra.*", line: "net.ipv6.conf.default.accept_ra=0"}
+        
+    - name: "3.3.11 Ensure IPv6 router advertisements are not accepted | active parameters ipv4"
+      shell: |
+       {
+         sysctl -w net.ipv6.conf.all.accept_ra=0
+         sysctl -w net.ipv6.conf.default.accept_ra=0
+         sysctl -w net.ipv4.route.flush=1
+       }
+  when:
+    - rule_3_3_11
+    - ipv6_active
+  tags:
+    - level1_server
+    - level1_workstation
+    - s3
+    - r3.3.11
+    

@@ -1,0 +1,1122 @@
+---
+- name: "Get users accounts"
+  command: "awk -F: '{print $1}' /etc/passwd"
+  register: users
+  changed_when: false
+  tags:
+    - s6
+
+- name: "6.1.1 Ensure AIDE is installed (Automated) "
+  block:
+    - name: "6.1.1 | Ensure AIDE is installed Install AIDE"
+      dnf:
+        name: aide 
+        state: present
+        
+    - name: "Initialize AIDE"
+      shell: aide --init
+      
+    - name: "Initialize AIDE 2"
+      shell: mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz
+  when:
+    - rule_6_1_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s6
+    - r6.1.1
+    - aide
+    
+- name: "6.1.2 | Ensure filesystem integrity is regularly checked "
+  cron:
+    name: Run AIDE integrity check
+    user: "{{ aide_cron['cron_user'] }}"
+    minute: "{{ aide_cron['aide_minute'] | default('0') }}"
+    hour: "{{ aide_cron['aide_hour'] | default('5') }}"
+    day: "{{ aide_cron['aide_day'] | default('*') }}"
+    month: "{{ aide_cron['aide_month'] | default('*') }}"
+    weekday: "{{ aide_cron['aide_weekday'] | default('*') }}"
+    job: "{{ aide_cron['aide_job'] }}"
+  when:
+    - rule_6_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s6
+    - r6.1.2
+    - aide
+
+- name: "6.1.3 Ensure cryptographic mechanisms are used to protect the integrity of audit tools"
+  block:
+    - name: "6.1.3 | Define audit tools list"
+      set_fact:
+        audit_tools:
+          - "/sbin/auditctl"
+          - "/sbin/auditd"
+          - "/sbin/ausearch"
+          - "/sbin/aureport"
+          - "/sbin/autrace"
+          - "/sbin/augenrules"
+
+    - name: "6.1.3 | Ensure audit tools are present in /etc/aide.conf"
+      lineinfile:
+        path: /etc/aide.conf
+        line: "{{ lookup('pipe', 'readlink -f ' + audit_tool) }} p+i+n+u+g+s+b+acl+xattrs+sha512"
+        state: present
+        create: yes
+      loop: "{{ audit_tools }}"
+      loop_control:
+        loop_var: audit_tool
+  when:
+    - rule_6_1_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s6
+    - r6.1.3
+    - aide
+
+- name: "6.2.1.1 Ensure journald service is enabled and active"
+  shell: |
+    systemctl unmask systemd-journald.service
+    systemctl start systemd-journald.service
+  register: journald_status
+  when:
+    - rule_6_2_1_1
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.1.1
+    - level1_server
+    - level1_workstation
+
+- name: "6.2.1.2 Ensure journald log file access is configured"
+  block:
+    - name: "6.2.1.2 Ensure journald log file access is configured"
+      shell: find /var/log -type f 
+      register: log_files
+      
+    - name: "6.2.1.2 Ensure journald log file access is configured"
+      file:
+        path: "{{item}}"
+        owner: 'root'
+        group: 'root'
+        mode: '0640'
+      with_items:
+        - "{{log_files.stdout_lines}}"
+      when:
+        - log_files.stdout_lines|length > 0
+  when:
+    - rule_6_2_1_2
+  tags:
+    - s6
+    - r6.2.1.2
+    - level1_server
+    - level1_workstation
+    - journald
+
+- name: "6.2.1.3 Ensure journald log file rotation is configured"
+  block:
+    - name: "6.2.1.3 Ensure [Journal] section exists in /etc/systemd/journald.conf"
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^\[Journal\]$'
+        line: '[Journal]'
+        create: yes
+
+    - name: "6.2.1.3 Set journald log file rotation settings"
+      lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: "{{ item.regex }}"
+        line: "{{ item.line }}"
+        insertafter: '^\[Journal\]$'
+      with_items:
+        - { regex: "SystemMaxUse=.*" , line: "SystemMaxUse={{journald_SystemMaxUse}}"}
+        - { regex: "SystemKeepFree=.*" , line: "SystemKeepFree={{journald_SystemKeepFree}}"}
+        - { regex: "RuntimeMaxUse=.*" , line: "RuntimeMaxUse={{journald_RuntimeMaxUse}}"}
+        - { regex: "RuntimeKeepFree=.*" , line: "RuntimeKeepFree={{journald_RuntimeKeepFree}}"}
+        - { regex: "MaxFileSec=.*" , line: "MaxFileSec={{journald_MaxFileSec}}"}
+      when:
+        - logging_module == 'journald'
+  when:
+    - rule_6_2_1_3
+  tags:
+    - s6
+    - r6.2.1.3
+    - level1_server
+    - level1_workstation
+    - journald
+
+- name: 6.2.1.4 Ensure only one logging system is in use
+  block:
+    - name: 6.2.1.4 Check if rsyslog is active
+      command: systemctl is-active --quiet rsyslog
+      register: rsyslog_status
+      ignore_errors: yes
+
+    - name: 6.2.1.4 Check if journald is active
+      command: systemctl is-active --quiet systemd-journald
+      register: journald_status
+      ignore_errors: yes
+
+    - name: 6.2.1.4 Report which logging system is active
+      debug:
+        msg: |
+          {% if rsyslog_status.rc == 0 %}
+            - rsyslog is active.
+          {% else %}
+            - rsyslog is not active.
+          {% endif %}
+          
+          {% if journald_status.rc == 0 %}
+            - journald is active.
+          {% else %}
+            - journald is not active.
+          {% endif %}
+          
+          - Logging module set to: {{ logging_module }}
+
+    - name: 6.2.1.4 Disable rsyslog if journald is the preferred logging system
+      command: systemctl disable rsyslog
+      when: "{{ logging_module == 'journald' and rsyslog_status.rc == 0 }}"
+
+    - name: 6.2.1.4 Disable journald if rsyslog is the preferred logging system
+      command: systemctl disable systemd-journald
+      when: "{{ logging_module == 'rsyslog' and journald_status.rc == 0 }}"
+
+  when:
+    - rule_6_2_1_4
+  tags:
+    - s6
+    - r6.2.1.4
+    - level1_server
+    - level1_workstation
+
+- name: "6.2.2.1.1 Ensure systemd-journal-remote is installed"
+  dnf:
+    name: systemd-journal-remote
+    state: present
+  when:
+    - rule_6_2_2_1_1
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.1.1
+    - level1_server
+    - level1_workstation
+    
+- name: 6.2.2.1.3 Ensure systemd-journal-upload is enabled and active
+  systemd:
+    name: systemd-journal-upload.service
+    enabled: true
+    state: started
+    masked: false
+  when:
+    - rule_6_2_2_1_3
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.1.3
+    - level1_server
+    - level1_workstation
+    
+- name: 6.2.2.1.4 Ensure systemd-journal-remote service is not in use
+  block:
+    - name: 6.2.2.1.4 Ensure systemd-journal-remote.socket and systemd-journal-remote.service are disabled and masked
+      systemd:
+        name: "{{ item }}"
+        enabled: false
+        state: stopped
+        masked: true
+      with_items:
+        - systemd-journal-remote.socket
+        - systemd-journal-remote.service
+      when:
+        - rule_6_2_2_1_4
+        - logging_module == 'journald'
+      tags:
+        - s6
+        - r6.2.2.1.4
+        - level1_server
+        - level1_workstation
+        
+- name: "6.2.2.2 Ensure journald ForwardToSyslog is disabled"
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    state: present
+    regexp: '^\s*ForwardToSyslog\s*=\s*.*'
+    line: "ForwardToSyslog=no"
+  notify: restart journald
+  when:
+    - rule_6_2_2_2
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.2
+    - level1_server
+    - level1_workstation
+
+- name: "6.2.2.3 Ensure journald Compress is configured"
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "Compress=.*"
+    line: "Compress=yes"
+  notify: restart journald
+  when:
+    - rule_6_2_2_3
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.3
+    - level1_server
+    - level1_workstation
+    
+- name: "6.2.2.4 Ensure journald Storage is configured"
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "Storage=.*"
+    line: "Storage=persistent"
+  notify: restart journald
+  when:
+    - rule_6_2_2_4
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.4
+    - level1_server
+    - level1_workstation
+
+- name: "6.2.3.1 Ensure rsyslog is installed"
+  dnf:
+    name: rsyslog
+    state: present
+  when:
+    - rule_6_2_3_1
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.1
+    - level1_server
+    - level1_workstation
+    - rsyslog
+    
+- name: "6.2.3.2 Ensure rsyslog service is enabled and active"
+  systemd:
+    name: rsyslog
+    enabled: true
+    state: started
+    masked: false  # Unmask the service
+  when:
+    - rule_6_2_3_2
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.2
+    - level1_server
+    - level1_workstation
+    - rsyslog
+    
+- name: "6.2.3.3 Ensure journald is configured to send logs to rsyslog"
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "ForwardToSyslog=.*"
+    line: "ForwardToSyslog=yes"
+  notify: restart journald
+  when:
+    - rule_6_2_3_3
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.3
+    - level1_server
+    - level1_workstation
+    - rsyslog
+
+- name: "6.2.3.4 Ensure rsyslog log file creation mode is configured"
+  lineinfile:
+    path: /etc/rsyslog.d/hardening.conf
+    create: yes
+    regexp: "\\$FileCreateMode\\s+[0-9][0-9][0-9][0-9]"
+    line: "$FileCreateMode 0640"
+    mode: '0644'
+  notify:
+    - restart rsyslog
+  when:
+    - rule_6_2_3_4
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.4
+    - level1_server
+    - level1_workstation
+    - rsyslog
+
+- name: "6.2.3.6 Ensure rsyslog is configured to send logs to a remote log host"
+  lineinfile:
+    path: /etc/rsyslog.conf
+    line: '*.* action(type="omfwd" target="{{rsyslog_target}}" port="{{rsyslog_port}}" protocol="{{rsyslog_protocol}}" action.resumeRetryCount="100" queue.type="LinkedList" queue.size="1000")'
+  notify: restart rsyslog
+  when:
+    - rule_6_2_3_6
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.6
+    - level1_server
+    - level1_workstation
+    - rsyslog
+    
+- name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client"
+  block:
+    - name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client | Get files"
+      shell: ls -l /etc/rsyslog.d/*.conf | cut -d " " -f 9
+      changed_when: no
+      register: rsyslog_files
+    - name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client | Remove 'ModLoad imtcp' from files"
+      lineinfile:
+        path: "{{item}}"
+        regexp: |
+          "\$ModLoad imtcp"
+        state: absent
+      with_items:
+        - rsyslog_files.stdout_lines
+      when:
+        - rsyslog_files.rc == 0
+    - name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client | Remove '$InputTCPServerRun' from files"
+      lineinfile:
+        path: "{{item}}"
+        regexp: |
+          "\$InputTCPServerRun"
+        state: absent
+      with_items:
+        - rsyslog_files.stdout_lines
+      when:
+        - rsyslog_files.rc == 0
+    - name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client | Remove 'module(load=imtcp)' from files"
+      lineinfile:
+        path: "{{item}}"
+        regexp: |
+          "module\(load=.imtcp.\)"
+        state: absent
+      with_items:
+        - rsyslog_files.stdout_lines
+      when:
+        - rsyslog_files.rc == 0
+    - name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client | Remove 'input(type=imtcp port=514)' from files"
+      lineinfile:
+        path: "{{item}}"
+        regexp: |
+          "input\(type=.imtcp. port=.514.\)"
+        state: absent
+      with_items:
+        - rsyslog_files.stdout_lines
+      when:
+        - rsyslog_files.rc == 0
+    - name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client | /etc/rsyslog.conf"
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: "{{item}}"
+        state: absent
+      with_items:
+        - \$ModLoad imtcp
+        - \$InputTCPServerRun
+        - module\(load=.imtcp.\)
+        - input\(type=.imtcp. port=.514.\)
+  notify: restart rsyslog
+  when:
+    - rule_6_2_3_7
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.7
+    - level1_server
+    - level1_workstation
+    - rsyslog  
+
+- name: "6.2.4.1 Ensure access to all logfiles has been configured"
+  block:
+    - name: "6.2.4.1 Ensure journald log file access is configured"
+      shell: find /var/log -type f 
+      register: log_files
+    - name: "6.2.4.1 Ensure journald log file access is configured"
+      file:
+        path: "{{item}}"
+        owner: 'root'
+        group: 'root'
+        mode: '0640'
+      with_items:
+        - "{{log_files.stdout_lines}}"
+      when:
+        - log_files.stdout_lines|length > 0
+  when:
+    - rule_6_2_4_1
+  tags:
+    - s6
+    - r6.2.4.1
+    - level1_server
+    - level1_workstation
+    - journald
+
+- name: "6.3.1.1 Ensure auditd packages are installed"
+  dnf:
+    name:
+      - audit
+      - audit-libs
+    state: present
+  when:
+    - rule_6_3_1_1
+  tags:
+    - s6
+    - r6.3.1.1
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.1.2 Ensure auditing for processes that start prior to auditd is enabled"
+  block:
+    - name: "6.3.1.2 Ensure audit=1 is set in GRUB_CMDLINE_LINUX and remove audit=0 if present"
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX="([^"]*)"$'  
+        line: 'GRUB_CMDLINE_LINUX="\1 audit=1"' 
+
+    - name: "6.3.1.2 Update GRUB configuration for audit=1"
+      command: grubby --update-kernel ALL --args 'audit=1'
+  when:
+    - rule_6_3_1_2
+  tags:
+    - s6
+    - r6.3.1.2
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.1.3 Ensure audit_backlog_limit is sufficient"
+  block:
+    - name: "6.3.1.3 Ensure audit_backlog_limit=8192 is set in GRUB_CMDLINE_LINUX"
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX=".*audit_backlog_limit=[^"\s]+.*"$'  
+        line: 'GRUB_CMDLINE_LINUX="\1 audit_backlog_limit=8192"'  
+        state: present
+
+    - name: "6.3.1.3 Set audit_backlog_limit=8192 in GRUB configuration"
+      command: grubby --update-kernel ALL --args 'audit_backlog_limit=8192' 
+  when:
+    - rule_6_3_1_3
+  tags:
+    - s6
+    - r6.3.1.3
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.1.4 Ensure auditd service is enabled, active, and not masked"
+  systemd:
+    name: auditd
+    enabled: true
+    state: started
+    masked: false
+  when:
+    - rule_6_3_1_4
+  tags:
+    - s6
+    - r6.3.1.4
+    - level2_server
+    - level2_workstation 
+    
+- name: "6.3.2.1 Ensure audit log storage size is configured"
+  lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: ".*max_log_file =.*"
+    line: "max_log_file = {{maxLogFile}}"
+  when:
+    - rule_6_3_2_1
+  tags:
+    - s6
+    - r6.3.2.1
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.2.2 Ensure audit logs are not automatically deleted"
+  lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: ".*max_log_file_action =.*"
+    line: "max_log_file_action = {{maxLogFileAction}}"
+  when:
+    - rule_6_3_2_2
+  tags:
+    - s6
+    - r6.3.2.2
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.2.3 Ensure system is disabled when audit logs are full"
+  lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: "^{{item.regex}}.*"
+    line: "{{item.line}}"
+  with_items:
+    - { regex: "space_left_action", line: "space_left_action = email"}
+    - { regex: "action_mail_acct", line: "action_mail_acct = root"}
+    - { regex: "admin_space_left_action", line: "admin_space_left_action = {{adminSpaceLeftAction}}"}
+  when:
+    - rule_6_3_2_3
+  tags:
+    - s6
+    - r6.3.2.3
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.2.4 Ensure system warns when audit logs are low on space"
+  block:
+    - name: "6.3.2.4 Set space_left_action to email in /etc/audit/auditd.conf"
+      lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: '^space_left_action'
+        line: 'space_left_action = email'
+        create: yes
+
+    - name: "6.3.2.4 Set admin_space_left_action to single in /etc/audit/auditd.conf"
+      lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: '^admin_space_left_action'
+        line: 'admin_space_left_action = single'
+        create: yes
+  when:
+    - rule_6_3_2_4
+  tags:
+    - s6
+    - r6.3.2.4
+    - level2_server
+    - level2_workstation
+  
+- name: "6.3.3.1 Ensure changes to system administration scope (sudoers) is collected"
+  block:
+    - name: "6.3.3.1 create a file in the /etc/audit/rules.d/ directory"
+      template:
+        src: 50-scope.rules.j2
+        dest: /etc/audit/rules.d/50-scope.rules
+  notify: load rules
+  when:
+    - rule_6_3_3_1
+  tags:
+    - s6
+    - r6.3.3.1
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.2 Ensure actions as another user are always logged"
+  block:
+    - name: "6.3.3.2 Ensure actions as another user are always logged 32 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-user_emulation.rules
+        line: '-a always,exit -F arch=b32 -C euid!=uid -F auid!=unset -S execve -k user_emulation'
+        create: yes
+    - name: "6.3.3.2 Ensure actions as another user are always logged 64 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-user_emulation.rules
+        line: '-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation'
+        create: yes
+      when:
+        - systemBit == '64'
+  notify: load rules
+  when:
+    - rule_6_3_3_2
+  tags:
+    - s6
+    - r6.3.3.2
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.3 Ensure events that modify the sudo log file are collected"
+  shell: |
+    echo "-w {{sudo_log_file}} -p wa -k sudo_log_file" >> /etc/audit/rules.d/50-sudo.rules
+  register: sudologfile
+  failed_when: '"ERROR" in sudologfile.stdout'
+  notify: load rules
+  when:
+    - rule_6_3_3_3
+  tags:
+    - s6
+    - r6.3.3.3
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.4 Ensure events that modify date and time information are collected"
+  block:
+    - name: "6.3.3.4 Ensure events that modify date and time information are collected 32 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-time-change.rules
+        line: '-a always,exit -F arch=b32 -S adjtimex,settimeofday,clock_settime -k time-change'
+        create: yes
+    - name: "6.3.3.4 Ensure events that modify date and time information are collected 64 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-time-change.rules
+        line: '-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change'
+        create: yes
+      when:
+        - systemBit == '64'
+    - name: "6.3.3.4 Ensure events that modify date and time information are collected localtime"
+      lineinfile:
+        path: /etc/audit/rules.d/50-time-change.rules
+        line: '-w /etc/localtime -p wa -k time-change'
+        create: yes
+  notify: load rules
+  when:
+    - rule_6_3_3_4
+  tags:
+    - s6
+    - r6.3.3.4
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.5 Ensure events that modify the system's network environment are collected"
+  block:
+    - name: "6.3.3.5 Ensure events that modify the system's network environment are collected 32 bit"
+      template:
+        src: 50-system_local.rules.j2
+        dest: /etc/audit/rules.d/50-system_local.rules
+  notify: load rules
+  when:
+    - rule_6_3_3_5
+  tags:
+    - s6
+    - r6.3.3.5
+    - level2_server
+    - level2_workstation
+       
+- name: "6.3.3.6 Ensure use of privileged commands are collected"
+  block:
+    - name: "6.3.3.6 Ensure use of privileged commands are collected"
+      shell: |
+        findmnt -n -l -k -it $(awk '/nodev/ { print $2 }' /proc/filesystems | paste -sd,)  | grep -Pv "noexec|nosuid" | awk '{print $1}'
+      register: mount_points
+      
+    - name: "6.3.3.6 Ensure use of privileged commands are collected"  
+      shell: |
+        find "{{ item }}" -xdev -perm /6000 -type f | awk -v UID_MIN={{min_uid}} '{print "-a always,exit -F path=" $1 " -F perm=x -F auid>="UID_MIN" -F auid!=unset -k privileged" }'
+      register: privileged_audit
+      with_items:
+        - "{{mount_points.stdout_lines}}"
+    
+    - name: "6.3.3.6 Ensure use of privileged commands are collected"
+      lineinfile:
+        line: "{{item.stdout}}"
+        path: /etc/audit/rules.d/50-privileged.rules  
+        create: yes
+      with_items:
+        - "{{privileged_audit.results}}"     
+  notify: load rules
+  when:
+    - rule_6_3_3_6
+  tags:
+    - s6
+    - r6.3.3.6
+    - level2_server
+    - level2_workstation
+        
+- name: "6.3.3.7 Ensure unsuccessful file access attempts are collected"
+  block:
+    - name: "6.3.3.7 Ensure unsuccessful file access attempts are collected 32 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-access.rules
+        line: "{{item}}"
+        create: yes
+      with_items:
+        - "-a always,exit -F arch=b32 -S creat,open,openat,truncate,ftruncate -F exit=-EACCES -F auid>={{min_uid}} -F auid!=unset -k access"
+        - "-a always,exit -F arch=b32 -S creat,open,openat,truncate,ftruncate -F exit=-EPERM -F auid>={{min_uid}} -F auid!=unset -k access"
+        
+    - name: "6.3.3.7 Ensure unsuccessful file access attempts are collected 64 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-access.rules
+        line: "{{item}}"
+        create: yes
+      with_items:
+        - "-a always,exit -F arch=b64 -S creat,open,openat,truncate,ftruncate -F exit=-EACCES -F auid>={{min_uid}} -F auid!=unset -k access"
+        - "-a always,exit -F arch=b64 -S creat,open,openat,truncate,ftruncate -F exit=-EPERM -F auid>={{min_uid}} -F auid!=unset -k access"
+      when:
+        - systemBit == '64'
+  notify: load rules
+  when:
+    - rule_6_3_3_7
+  tags:
+    - s6
+    - r6.3.3.7
+    - level2_server
+    - level2_workstation
+        
+- name: "6.3.3.8 Ensure events that modify user/group information are collected"
+  template:
+    src: 50-identity.rules.j2
+    dest: /etc/audit/rules.d/50-identity.rules
+  notify: load rules
+  when:
+    - rule_6_3_3_8
+  tags:
+    - s6
+    - r6.3.3.8
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.9 Ensure discretionary access control permission modification events are collected"
+  block:
+    - name: "6.3.3.9 Ensure discretionary access control permission modification events are collected 32 bit"
+      template:
+        src: 50-perm_modb32.rules.j2
+        dest: /etc/audit/rules.d/50-perm_mod.rules
+      when:
+        - systemBit == '32'
+        
+    - name: "6.3.3.9 Ensure discretionary access control permission modification events are collected 64 bit"
+      template:
+        src: 50-perm_modb64.rules.j2
+        dest: /etc/audit/rules.d/50-perm_mod.rules
+      when:
+        - systemBit == '64'
+  notify: load rules
+  when:
+    - rule_6_3_3_9
+  tags:
+    - s6
+    - r6.3.3.9
+    - level2_server
+    - level2_workstation
+   
+- name: "6.3.3.10 Ensure successful file system mounts are collected"
+  block:
+    - name: "6.3.3.10 Ensure successful file system mounts are collected 32 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-mounts.rules
+        line: "-a always,exit -F arch=b32 -S mount -F auid>={{min_uid}} -F auid!=unset -k mounts"
+        create: yes
+        
+    - name: "6.3.3.10 Ensure successful file system mounts are collected 64 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-mounts.rules
+        line: "-a always,exit -F arch=b64 -S mount -F auid>={{min_uid}} -F auid!=unset -k mounts"
+        create: yes
+      when:
+        - systemBit == '64'
+  notify: load rules
+  when:
+    - rule_6_3_3_10
+  tags:
+    - s6
+    - r6.3.3.10
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.11 Ensure session initiation information is collected"
+  template:
+    src: 50-session.rules.j2
+    dest: /etc/audit/rules.d/50-session.rules
+  notify: load rules
+  when:
+    - rule_6_3_3_11
+  tags:
+    - s6
+    - r6.3.3.11
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.12 Ensure login and logout events are collected"
+  template:
+    src: 50-login.rules.j2
+    dest: /etc/audit/rules.d/50-login.rules
+  notify: load rules
+  when:
+    - rule_6_3_3_12
+  tags:
+    - s6
+    - r6.3.3.12
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.13 Ensure file deletion events by users are collected"
+  block:
+    - name: "6.3.3.13 Ensure file deletion events by users are collected 32 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-delete.rules
+        line: "-a always,exit -F arch=b32 -S rename,unlink,unlinkat,renameat -F auid>={{min_uid}} -F auid!=unset -F key=delete"
+        create: yes
+    - name: "6.3.3.13 Ensure file deletion events by users are collected 64 bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-delete.rules
+        line: "-a always,exit -F arch=b64 -S rename,unlink,unlinkat,renameat -F auid>={{min_uid}} -F auid!=unset -F key=delete"
+        create: yes
+      when:
+        - systemBit == '64'  
+  notify: load rules
+  when:
+    - rule_6_3_3_13
+  tags:
+    - s6
+    - r6.3.3.13
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.14 Ensure events that modify the system's Mandatory Access Controls are collected"
+  template:
+    src: 50-MAC-policy.rules.j2
+    dest: /etc/audit/rules.d/50-MAC-policy.rules
+  notify: load rules
+  when:
+    - rule_6_3_3_14
+  tags:
+    - s6
+    - r6.3.3.14
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.3.15 Ensure successful and unsuccessful attempts to use the chcon command are recorded"
+  lineinfile:
+    path: /etc/audit/rules.d/50-perm_chng.rules
+    line: "-a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>={{min_uid}} -F auid!=unset -k perm_chng"
+    create: yes
+  notify: load rules
+  when:
+    - rule_6_3_3_15
+  tags:
+    - s6
+    - r6.3.3.15
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.16 Ensure successful and unsuccessful attempts to use the setfacl command are recorded"
+  lineinfile:
+    path: /etc/audit/rules.d/50-perm_chng.rules
+    line: "-a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>={{min_uid}} -F auid!=unset -k perm_chng"
+    create: yes
+  notify: load rules
+  when:
+    - rule_6_3_3_16
+  tags:
+    - s6
+    - r6.3.3.16
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.17 Ensure successful and unsuccessful attempts to use the chacl command are recorded"
+  lineinfile:
+    path: /etc/audit/rules.d/50-perm_chng.rules
+    line: "-a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>={{min_uid}} -F auid!=unset -k perm_chng"
+    create: yes
+  notify: load rules
+  when:
+    - rule_6_3_3_17
+  tags:
+    - s6
+    - r6.3.3.17
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.18 Ensure successful and unsuccessful attempts to use the usermod command are recorded"
+  lineinfile:
+    path: /etc/audit/rules.d/50-usermod.rules
+    line: "-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>={{min_uid}} -F auid!=unset -k usermod"
+    create: yes
+  notify: load rules
+  when:
+    - rule_6_3_3_18
+  tags:
+    - s6
+    - r6.3.3.18
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.19 Ensure kernel module loading unloading and modification is collected"
+  block:
+    - name: "6.3.3.19 Ensure kernel module loading unloading and modification is collected 32bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-usermod.rules
+        line: "-a always,exit -F path=/usr/bin/kmod -F perm=x -F auid>={{min_uid}} -F auid!=unset -k kernel_modules"
+        create: yes
+        
+    - name: "6.3.3.19 Ensure kernel module loading unloading and modification is collected 64bit"
+      lineinfile:
+        path: /etc/audit/rules.d/50-usermod.rules
+        line: "-a always,exit -F arch=b64 -S init_module,finit_module,delete_module,create_module,query_module -F auid>={{min_uid}} -F auid!=unset -k kernel_modules"
+        create: yes    
+      when:
+        - systemBit == '64'  
+  notify: load rules
+  when:
+    - rule_6_3_3_19
+  tags:
+    - s6
+    - r6.3.3.19
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.20 Ensure the audit configuration is immutable"
+  lineinfile:
+    path: /etc/audit/rules.d/99-finalize.rules
+    line: "-e 2"
+    create: yes
+  notify: load rules
+  when:
+    - rule_6_3_3_20
+  tags:
+    - s6
+    - r6.3.3.20
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.21 | Ensure the running and on disk configuration is the same"
+  command: augenrules --check
+  register: augenrules_status
+  failed_when: '"No change" not in augenrules_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+  when:
+    - rule_6_3_3_21
+  tags:
+    - s6
+    - r6.3.3.21
+    - level2_server
+    - level2_workstation 
+    
+- name: "6.3.4.1 Ensure the audit log file directory mode is configured"
+  shell: |
+    chmod g-w,o-rwx "$(dirname $(awk -F"=" '/^\s*log_file/ {print $2}' /etc/audit/auditd.conf))"
+  when:
+    - rule_6_3_4_1
+  tags:
+    - s6
+    - r6.3.4.1
+    - level2_server
+    - level2_workstation    
+    
+- name: "6.3.4.2 Ensure audit log files mode is configured"
+  shell: |
+     [ -f /etc/audit/auditd.conf ] && find "$(dirname $(awk -F "=" '/^\s*log_file/ {print $2}' /etc/audit/auditd.conf | xargs))" -type f -perm /0137 -exec chmod u-x,g-wx,o-rwx {} +
+  when:
+    - rule_6_3_4_2
+  tags:
+    - s6
+    - r6.3.4.2
+    - level2_server
+    - level2_workstation
+       
+- name: "6.3.4.3 Ensure audit log files owner is configured"
+  shell: |
+     [ -f /etc/audit/auditd.conf ] && log_dir=$(dirname "$(awk -F "=" '/^\s*log_file/ {gsub(/[[:space:]]/, "", $2); print $2}' /etc/audit/auditd.conf)") && find "$log_dir" -type f ! -user root -exec chown root {} + -exec chmod 600 {} +
+  when:
+    - rule_6_3_4_3
+  tags:
+    - s6
+    - r6.3.4.3
+    - level2_server
+    - level2_workstation
+
+- name: 6.3.4.4 Configure audit log files ownership and update auditd configuration
+  block:
+    - name: "6.3.4.4 Configure the audit log files to be owned by adm group"
+      shell: |
+        find $(dirname $(awk -F"=" '/^\s*log_file\s*=\s*/ {print $2}' /etc/audit/auditd.conf | xargs)) -type f \( ! -group adm -a ! -group root \) -exec chgrp adm {} +
+
+    - name: "6.3.4.4 Configure the audit log files to be owned by the adm group"
+      shell: |
+        chgrp adm /var/log/audit/
+
+    - name: "6.3.4.4 Set the log_group parameter in the audit configuration file"
+      shell: |
+        sed -ri 's/^\s*#?\s*log_group\s*=\s*\S+(\s*#.*)?.*$/log_group = adm\1/' /etc/audit/auditd.conf
+
+  notify: restart auditd
+  when:
+    - rule_6_3_4_4  
+
+  tags:
+    - s6
+    - r6.3.4.4
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.4.5 Ensure audit configuration files mode is configured"
+  shell: |
+    find /etc/audit/ -type f \( -name '*.conf' -o -name '*.rules' \) -exec chmod u-x,g-wx,o-rwx {} +
+  when:
+    - rule_6_3_4_5
+  tags:
+    - s6
+    - r6.3.4.5
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.4.6 Ensure audit configuration files owner is configured"
+  shell: |
+     [ -f /etc/audit/auditd.conf ] && find "$(dirname $(awk -F "=" '/^\s*log_file/ {print $2}' /etc/audit/auditd.conf | xargs))" -type f ! -user root -exec chown root {} +  
+  when:
+    - rule_6_3_4_6
+  tags:
+    - s6
+    - r6.3.4.6
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.4.7 Ensure audit configuration files group owner is configured"
+  shell: |
+    find /etc/audit/ -type f \( -name '*.conf' -o -name '*.rules' \) ! -group root -exec chgrp root {} +
+  when:
+    - rule_6_3_4_7
+  tags:
+    - s6
+    - r6.3.4.7
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.4.8 Ensure audit tools mode is configured"
+  shell: |
+     chmod go-w /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules
+  when:
+    - rule_6_3_4_8
+  tags:
+    - s6
+    - r6.3.4.8
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.4.9 Ensure audit tools owner is configured"
+  shell: |
+      chown root /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules
+  when:
+    - rule_6_3_4_9
+  tags:
+    - s6
+    - r6.3.4.9
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.4.10 Ensure audit tools group owner is configured"
+  block:
+    - name: "6.3.4.10 Ensure audit tools group owner is configured | remove more permissive mode from the audit tools"
+      shell: |
+        chmod go-w /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules
+    - name: "6.3.4.10 Ensure audit tools group owner is configured | change owner and group of the audit tools to root user and group"
+      shell: |
+        chown root:root /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules
+  when:
+    - rule_6_3_4_10
+  tags:
+    - s6
+    - r6.3.4.10
+    - level2_server
+    - level2_workstation
+
+
+
+    
+
+    
+
+    
+
+    
+
+
+
+  
+    
+
+
+
+

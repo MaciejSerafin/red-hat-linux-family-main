@@ -1,0 +1,35 @@
+# This nftables.rules config should be saved as /etc/nftables/nftables.rules
+# flush nftables rulesset
+flush ruleset
+# Load nftables ruleset
+# nftables config with inet table named filter
+table inet filter {
+ chain input {
+ type filter hook input priority 0; policy drop;
+ # early drop invalid packets
+ ct state invalid drop
+ # allow loopback if not forged
+ iif lo accept
+ iif != lo ip daddr 127.0.0.1/8 drop
+ iif != lo ip6 daddr ::1/128 drop
+ # allow connections made by ourselves
+ ip protocol tcp ct state established accept
+ ip protocol udp ct state established accept
+ # allow from anywhere
+ ip protocol igmp accept
+ tcp dport ssh accept
+ # allow some icmp
+ icmpv6 type { destination-unreachable, packet-too-big, time-exceeded, 
+parameter-problem, mld-listener-query, mld-listener-report, mld-listener-done, nd-router-solicit, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert, ind-neighbor-solicit, ind-neighbor-advert, mld2-listener-report } 
+accept
+ icmp type { destination-unreachable, router-advertisement, router-solicitation, time-exceeded, parameter-problem } accept
+ }
+ chain forward {
+ # drop all forward
+ type filter hook forward priority 0; policy drop;
+ }
+ chain output {
+ # can omit this as its accept by default
+ type filter hook output priority 0; policy accept;
+ }
+}

@@ -1,0 +1,1855 @@
+---
+- name: Run whoami without become.
+  command: whoami
+  changed_when: false
+  become: false
+  register: whoami
+  tags:
+    - always
+
+- name: Set a fact with the user name.
+  set_fact:
+    login_user: "{{ whoami.stdout }}"
+  tags:
+    - always
+
+- name: "5.1.1 Ensure permissions on /etc/ssh/sshd_config are configured"
+  script: 
+    cmd: rule_5_1_1.sh
+  register: script_return
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.1.1
+
+- name: "5.1.2 | Ensure permissions on SSH private host key files are configured "
+  block:
+    - name: "5.1.2 | Ensure permissions on SSH private host key files are configured |Find Private SSH Hostkeys"
+      command: find /etc/ssh -xdev -type f -name 'ssh_host_*_key'
+      register: privhostkey
+
+    - name: "5.1.2 | Ensure permissions on SSH private host key files are configured |Set Permissions on Private SSH Hostkeys"
+      file:
+        dest: "{{ item }}"
+        owner: root
+        group: root
+        mode: 0600
+      with_items:
+        - "{{ privhostkey.stdout_lines }}"
+  when:
+    - rule_5_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.2
+    - s5
+    
+- name: "5.1.3 | Ensure permissions on SSH public host key files are configured "
+  block:
+    - name: "5.1.3 | Ensure permissions on SSH public host key files are configured |Find Public SSH Hostkeys"
+      command: find /etc/ssh -xdev -type f -name 'ssh_host_*_key.pub'
+      register: pubhostkey
+
+    - name: "5.1.3 | Ensure permissions on SSH public host key files are configured | Set Permissions on Public SSH Hostkeys"
+      file:
+        dest: "{{ item }}"
+        owner: root
+        group: root
+        mode: 0644
+      with_items:
+        - "{{ pubhostkey.stdout_lines }}"
+  when:
+        - rule_5_1_3      
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.3
+    - s5
+
+- name: "5.1.4 Ensure sshd Ciphers are configured"
+  block:
+    - name: "5.1.4 Ensure sshd Ciphers are configured"
+      lineinfile:
+        path: /etc/crypto-policies/policies/modules/NO-SSHWEAKCIPHERS.pmod
+        regexp: "^cipher"
+        line: "cipher@SSH = -3DES-CBC -AES-128-CBC -AES-192-CBC -AES-256-CBC -CHACHA20-POLY1305"
+        create: yes
+  notify:
+    - update crypto policy
+    - restart sshd
+  when:
+    - rule_5_1_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.4
+    - s5
+
+- name: "5.1.5 Ensure sshd KexAlgorithms are configured"
+  block:
+    - name: "5.1.5 Ensure sshd hash is configured"
+      lineinfile:
+        path: /etc/crypto-policies/policies/modules/NO-SHA1.pmod
+        regexp: "^hash"
+        line: "hash = -SHA1"
+        create: yes
+
+    - name: "5.1.5 Ensure sshd sign is configured"
+      lineinfile:
+        path: /etc/crypto-policies/policies/modules/NO-SHA1.pmod
+        regexp: "^sign"
+        line: "sign = -*-SHA1"
+        create: yes
+
+    - name: "5.1.5 Ensure sshd sha1_in_certs is configured"
+      lineinfile:
+        path: /etc/crypto-policies/policies/modules/NO-SHA1.pmod
+        regexp: "^sha1_in_certs"
+        line: "sha1_in_certs = 0"
+        create: yes
+  notify:
+    - update crypto policy
+    - restart sshd
+  when:
+    - rule_5_1_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.5
+    - s5
+
+- name: "5.1.6 Ensure sshd MACs are configured"
+  block:
+    - name: "5.1.6 Ensure sshd MACs are configured"
+      lineinfile:
+        path: /etc/crypto-policies/policies/modules/NO-WEAKMAC.pmod
+        regexp: "^MACs"
+        line: "mac@SSH = -HMAC-MD5* -UMAC-64* -UMAC-128*"
+        create: yes    
+  notify:
+    - update crypto policy
+    - restart sshd
+  when:
+    - rule_5_1_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.6
+    - s5
+
+- name: "5.1.7 | Ensure sshd access is configured"
+  block:
+    - name: "5.1.7 | Ensure sshd access is configured | AllowUsers"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^AllowUsers"
+        line: "AllowUsers {{ sshd['allowusers'] }}"
+        create: yes
+      when:
+        - "sshd['allowusers']|default('') != ''"
+
+    - name: "5.1.7 | Ensure sshd access is configured | AllowGroups"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^AllowGroups"
+        line: "AllowGroups {{ sshd['allowgroups'] }}"
+        create: yes
+      when:
+        - "sshd['allowgroups']|default('') != ''"
+
+    - name: "5.1.7 | Ensure sshd access is configured | DenyUsers"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^DenyUsers"
+        line: "DenyUsers {{ sshd['denyusers'] }}"
+        create: yes
+      when:
+        - "sshd['denyusers']|default('') != ''"
+
+    - name: "5.1.7 | Ensure sshd access is configured | DenyGroups"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^DenyGroups"
+        line: "DenyGroups {{ sshd['denygroups'] }}"
+        create: yes
+      when:
+        - "sshd['denygroups']|default('') != ''"
+  notify:
+    - restart sshd
+  when:
+    - rule_5_1_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.7
+    - s5
+
+- name: "5.1.8 | Ensure sshd Banner is configured"
+  block:
+    - name: "5.1.8 | Set Banner in hardening.conf"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^Banner"
+        line: "Banner /etc/issue.net"
+        create: yes
+
+    - name: "5.1.8 | Comment conflicting Banner entries in other config files"
+      find:
+        paths: /etc/ssh/sshd_config.d/
+        patterns: "*.conf"
+        excludes: "hardening.conf"
+        file_type: file
+      register: sshd_other_configs
+
+    - name: "5.1.8 | Comment Banner entries in conflicting files"
+      lineinfile:
+        path: "{{ item.path }}"
+        regexp: "^(?!#).*\\bBanner\\b"
+        line: "# \\g<0>"
+        backrefs: yes
+      loop: "{{ sshd_other_configs.files }}"
+      when: sshd_other_configs.files | length > 0
+  when:
+    - rule_5_1_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.8
+    - s5
+
+- name: "5.1.9 | Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured "
+  block:
+    - name: "5.1.9 | Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^ClientAliveInterval"
+        line: "ClientAliveInterval {{ sshd['clientaliveinterval'] }}"
+        create: yes
+
+    - name: "5.1.9 | Find other config files with ClientAliveInterval directive"
+      find:
+        paths: /etc/ssh/sshd_config.d/
+        patterns: "*.conf"
+        excludes: "hardening.conf"
+        file_type: file
+      register: sshd_other_configs
+
+    - name: "5.1.9 | Comment ClientAliveInterval entries in conflicting files"
+      lineinfile:
+        path: "{{ item.path }}"
+        regexp: "^(?!#).*\\bClientAliveInterval\\b"
+        line: "# \\g<0>"
+        backrefs: yes
+      loop: "{{ sshd_other_configs.files }}"
+      when: sshd_other_configs.files | length > 0
+
+    - name: "5.1.9 | Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^ClientAliveCountMax"
+        line: "ClientAliveCountMax {{ sshd['clientalivecountmax'] }}"
+        create: yes
+
+    - name: "5.1.9 | Find other config files with ClientAliveCountMax directive"
+      find:
+        paths: /etc/ssh/sshd_config.d/
+        patterns: "*.conf"
+        excludes: "hardening.conf"
+        file_type: file
+      register: sshd_other_configs
+
+    - name: "5.1.9 | Comment ClientAliveCountMax entries in conflicting files"
+      lineinfile:
+        path: "{{ item.path }}"
+        regexp: "^(?!#).*\\bClientAliveCountMax\\b"
+        line: "# \\g<0>"
+        backrefs: yes
+      loop: "{{ sshd_other_configs.files }}"
+      when: sshd_other_configs.files | length > 0
+  when:
+    - rule_5_1_9
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.9
+    - s5
+
+- name: "5.1.10 | Ensure sshd DisableForwarding is enabled"
+  block: 
+    - name: "5.1.10 | Ensure sshd DisableForwarding is enabled"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^DisableForwarding"
+        line: "DisableForwarding yes"
+        create: yes
+    - name: "5.1.10 | Ensure sshd DisableForwarding is enabled"
+      shell: |
+        grep -Pi '^\h*DisableForwarding\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'yes' | while read -r l_out; do sed -ri "/^\s*DisableForwarding\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_10
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.10
+    - s5
+
+- name: "5.1.11 | Ensure sshd GSSAPIAuthentication is disabled"
+  block:
+    - name: "5.1.11 | Ensure sshd GSSAPIAuthentication is disabled"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^GSSAPIAuthentication"
+        line: "GSSAPIAuthentication no"
+        create: yes
+    - name: "5.1.11 | Ensure sshd GSSAPIAuthentication is disabled"
+      shell: |
+        grep -Pi '^\h*GSSAPIAuthentication\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'no' | while read -r l_out; do sed -ri "/^\s*GSSAPIAuthentication\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_11
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.11
+    - s5
+
+- name: "5.1.12 | Ensure sshd HostbasedAuthentication is disabled "
+  block:
+    - name: "5.1.12 | Ensure sshd HostbasedAuthentication is disabled"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^HostbasedAuthentication"
+        line: "HostbasedAuthentication no"
+        create: yes
+    - name: "5.1.12 | Ensure sshd HostbasedAuthentication is disabled"
+      shell: |
+        grep -Pi '^\h*HostbasedAuthentication\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'no' | while read -r l_out; do sed -ri "/^\s*HostbasedAuthentication\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_12
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.12
+    - s5
+
+- name: "5.1.13 | Ensure sshd IgnoreRhosts is enabled"
+  block:
+    - name: "5.1.13 | Ensure sshd IgnoreRhosts is enabled"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^IgnoreRhosts"
+        line: "IgnoreRhosts yes"
+        create: yes
+    - name: "5.1.13 | Ensure sshd IgnoreRhosts is enabled"
+      shell: |
+        grep -Pi '^\h*IgnoreRhosts\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'yes' | while read -r l_out; do sed -ri "/^\s*IgnoreRhosts\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_13
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.13
+    - s5
+
+- name: "5.1.14 | Ensure sshd LoginGraceTime is configured "
+  block:
+    - name: 5.1.14 | Ensure sshd LoginGraceTime is configured
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^LoginGraceTime"
+        line: "LoginGraceTime {{ sshd['logingracetime'] }}"
+        create: yes
+    - name:  5.1.14 | Ensure sshd LoginGraceTime is configured
+      shell: |
+         grep -Pi '^\s*LoginGraceTime\s+(0|6[1-9]|[7-9][0-9]|[1-9][0-9][0-9]+|[^1]m)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | while read -r l_out; do sed -ri "/^\s*LoginGraceTime\s+(0|6[1-9]|[7-9][0-9]|[1-9][0-9][0-9]+|[^1]m)/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done     
+  when:
+    - rule_5_1_14
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.14
+    - s5
+
+- name: "5.1.15 | Ensure sshd LogLevel is configured"
+  block:
+    - name: "5.1.15 | Set LogLevel in hardening.conf"
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^LogLevel"
+        line: "LogLevel INFO"
+        create: yes
+
+    - name: "5.1.15 | Find other config files with LogLevel directive"
+      find:
+        paths: /etc/ssh/sshd_config.d/
+        patterns: "*.conf"
+        excludes: "hardening.conf"
+        file_type: file
+      register: sshd_other_configs
+
+    - name: "5.1.15 | Comment LogLevel entries in conflicting files"
+      lineinfile:
+        path: "{{ item.path }}"
+        regexp: "^(?!#).*\\bLogLevel\\b"
+        line: "# \\g<0>"
+        backrefs: yes
+      loop: "{{ sshd_other_configs.files }}"
+      when: sshd_other_configs.files | length > 0
+  when:
+    - rule_5_1_15
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.15
+    - s5
+
+- name: "5.1.16 | Ensure sshd MaxAuthTries is configured "
+  block:
+    - name: "5.1.16 | Ensure sshd MaxAuthTries is configured "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: '^(#)?MaxAuthTries \d'
+        line: "MaxAuthTries 4"
+        create: yes
+    - name: "5.1.16 | Ensure sshd MaxAuthTries is configured "
+      shell: |
+        grep -Pi '^\h*maxauthtries\h+([5-9]|[1-9][0-9]+)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | while read -r l_out; do sed -ri "/^\s*maxauthtries\s+([5-9]|[1-9][0-9]+)/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_16
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.16
+    - s5
+
+- name: "5.1.17 | Ensure sshd MaxStartups is configured "
+  block:
+    - name: "5.1.17 | Ensure sshd MaxStartups is configured "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^maxstartups"
+        line: "maxstartups 10:30:60"
+        create: yes
+    - name: "5.1.17 | Ensure sshd MaxStartups is configured "
+      shell: |
+        grep -Pi '^\s*maxstartups\s+(((1[1-9]|[1-9][0-9][0-9]+):([0-9]+):([0-9]+))|(([0-9]+):(3[1-9]|[4-9][0-9]|[1-9][0-9][0-9]+):([0-9]+))|(([0-9]+):([0-9]+):(6[1-9]|[7-9][0-9]|[1-9][0-9][0-9]+)))' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | while read -r l_out; do sed -ri "/^\s*MaxStartups\s+(((1[1-9]|[1-9][0-9][0-9]+):([0-9]+):([0-9]+))|(([0-9]+):(3[1-9]|[4-9][0-9]|[1-9][0-9][0-9]+):([0-9]+))|(([0-9]+):([0-9]+):(6[1-9]|[7-9][0-9]|[1-9][0-9][0-9]+)))/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_17
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.17
+    - s5
+
+- name: "5.1.18 | Ensure sshd MaxSessions is configured "
+  block:
+    - name: "5.1.18 | Ensure sshd MaxSessions is configured "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^MaxSessions"
+        line: "MaxSessions 10"
+        create: yes
+    - name: "5.1.18 | Ensure sshd MaxSessions is configured "
+      shell: |
+        grep -Pi '^\s*MaxSessions\s+(1[1-9]|[2-9][0-9]|[1-9][0-9][0-9]+)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | while read -r l_out; do sed -ri "/^\s*MaxSessions\s+(1[1-9]|[2-9][0-9]|[1-9][0-9][0-9]+)/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  notify: reload sshd
+  when:
+    - rule_5_1_18
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.18
+    - s5
+
+- name: "5.1.19 | Ensure sshd PermitEmptyPasswords is disabled "
+  block:
+    - name: "5.1.19 | Ensure sshd PermitEmptyPasswords is disabled "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^PermitEmptyPasswords"
+        line: "PermitEmptyPasswords no"
+        create: yes
+    - name: "5.1.19 | Ensure sshd PermitEmptyPasswords is disabled "
+      shell: |
+        grep -Pi '^\h*PermitEmptyPasswords\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'no' | while read -r l_out; do sed -ri "/^\s*PermitEmptyPasswords\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_19
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.19
+    - s5
+
+- name: "5.1.20 | Ensure sshd PermitRootLogin is disabled "
+  block:
+    - name: "5.1.20 | Ensure sshd PermitRootLogin is disabled "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^PermitRootLogin"
+        line: "PermitRootLogin no"
+        create: yes
+    - name: "5.1.20 | Ensure sshd PermitRootLogin is disabled "
+      shell: |
+        grep -Pi '^\h*PermitRootLogin\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'no' | while read -r l_out; do sed -ri "/^\s*PermitRootLogin\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_20
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.20
+    - s5
+
+- name: "5.1.21 | Ensure sshd PermitUserEnvironment is disabled "
+  block:
+    - name: "5.1.21 | Ensure sshd PermitUserEnvironment is disabled "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^PermitUserEnvironment"
+        line: "PermitUserEnvironment no"
+        create: yes
+    - name: "5.1.21 | Ensure sshd PermitUserEnvironment is disabled "
+      shell: |
+        grep -Pi '^\h*PermitUserEnvironment\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'no' | while read -r l_out; do sed -ri "/^\s*PermitUserEnvironment\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_21
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.21
+    - s5
+
+- name: "5.1.22 | Ensure sshd UsePAM is enabled "
+  block: 
+    - name: "5.1.22 | Ensure sshd UsePAM is enabled "
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config.d/hardening.conf
+        regexp: "^UsePAM yes"
+        line: "UsePAM yes"
+        create: yes
+    - name: "5.1.22 | Ensure sshd UsePAM is enabled"
+      shell: |
+        grep -Pi '^\h*UsePAM\b' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf | grep -Evi 'yes' | while read -r l_out; do sed -ri "/^\s*UsePAM\s+/s/^/# /" "$(awk -F: '{print $1}' <<< $l_out)";done
+  when:
+    - rule_5_1_22
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.22
+    - s5
+
+- name: "5.2.1 | Ensure sudo is installed  "
+  dnf:
+    name: "sudo"
+    state: present
+  when:
+    - rule_5_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.1
+    - s5
+
+- name: "5.2.2 | Ensure sudo commands use pty"
+  block:
+    - name: "5.2.2 | Ensure Defaults use_pty is present in /etc/sudoers.d/hardening.conf"
+      lineinfile:
+        path: /etc/sudoers.d/hardening.conf
+        regexp: "^Defaults use_pty"
+        line: "Defaults use_pty"
+        create: yes
+        state: present
+
+    - name: "5.2.2 | Find other sudoers config files with Defaults use_pty directive"
+      find:
+        paths: /etc/sudoers.d/
+        patterns: "*.conf"
+        excludes: "hardening.conf"
+        file_type: file
+      register: sudoers_other_configs
+
+    - name: "5.2.2 | Comment Defaults use_pty entries in conflicting sudoers files"
+      lineinfile:
+        path: "{{ item.path }}"
+        regexp: "^(?!#).*\\bDefaults\\s+use_pty\\b"
+        line: "# \\g<0>"
+        backrefs: yes
+      loop: "{{ sudoers_other_configs.files }}"
+      when: sudoers_other_configs.files | length > 0
+
+  when:
+    - rule_5_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.2
+    - s5
+
+- name: "5.2.3 | Ensure sudo log file exists"
+  block:
+    - name: "5.2.3 | Ensure Defaults logfile is present in /etc/sudoers.d/hardening.conf"
+      lineinfile:
+        dest: /etc/sudoers.d/hardening.conf
+        regexp: "^Defaults logfile"
+        line: 'Defaults logfile="{{ sudo_logfile }}"'
+        create: yes
+        state: present
+
+    - name: "5.2.3 | Find other sudoers config files with Defaults logfile directive"
+      find:
+        paths: /etc/sudoers.d/
+        patterns: "*.conf"
+        excludes: "hardening.conf"
+        file_type: file
+      register: sudoers_other_configs
+
+    - name: "5.2.3 | Comment Defaults logfile entries in conflicting sudoers files"
+      lineinfile:
+        path: "{{ item.path }}"
+        regexp: "^(?!#).*\\bDefaults\\s+logfile\\b"
+        line: "# \\g<0>"
+        backrefs: yes
+      loop: "{{ sudoers_other_configs.files }}"
+      when: sudoers_other_configs.files | length > 0
+  when:
+    - rule_5_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.3
+    - s5
+
+- name: "5.2.4 | Ensure users must provide password for escalation"
+  block:
+    - name: "5.2.4 | Ensure users must provide password for escalation | Get files"
+      find:
+        paths: /etc/sudoers.d/
+        file_type: file
+      register: sudoers_file_list
+
+    - name: "5.2.4 | Remove NOPASSWD from /etc/sudoers.d/ files"
+      replace:
+        path: "{{ item.path }}"
+        regexp: "^(.*NOPASSWD.*)$"
+        replace: ""
+      loop: "{{ sudoers_file_list.files }}"
+      when:
+        - sudoers_file_list.matched > 0
+
+    - name: "5.2.4 | Remove NOPASSWD from /etc/sudoers"
+      replace:
+        path: /etc/sudoers
+        regexp: "^(.*NOPASSWD.*)$"
+        replace: ""
+  when:
+    - rule_5_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.4
+    - s5
+
+- name: "5.2.5 |  Ensure re-authentication for privilege escalation is not disabled globally "
+  block:
+    - name: "5.2.5 | Ensure re-authentication for privilege escalation is not disabled globally | Get files"
+      command: ls /etc/sudoers.d/*
+      register: sudoers_file_list
+      failed_when: sudoers_file_list.rc not in [0,2]
+   
+    - name:  "5.2.5 | Ensure re-authentication for privilege escalation is not disabled globally"
+      replace:
+        path: '/etc/sudoers'
+        regexp: "^.*!authenticate.*$"
+        replace: ""
+        
+    - name:  "5.2.5 | Ensure re-authentication for privilege escalation is not disabled globally"
+      replace:
+        path: "{item.name}"
+        regexp: "^.*!authenticate.*$"
+        replace: ""
+      with_items:
+        - { name: '{{sudoers_file_list.stdout_lines}}' }
+      when:
+        - sudoers_file_list.rc == 0
+  when:
+    - rule_5_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.5
+    - s5
+    
+- name: "5.2.6 Ensure sudo authentication timeout is configured correctly "
+  block:
+    - name: "5.2.6  Ensure sudo authentication timeout is configured correctly | Get files"
+      command: ls /etc/sudoers.d/*
+      register: sudoers_file_list
+      failed_when: no
+
+    - name:  "5.2.6 Ensure sudo authentication timeout is configured correctly"
+      replace:
+        path: /etc/sudoers
+        regexp: "timestamp_timeout=[0-9]*"
+        replace: "timestamp_timeout={{sudo_timeout}}"
+  
+    - name:  "5.2.6 Ensure sudo authentication timeout is configured correctly"
+      replace:
+        path: "{item.name}"
+        regexp: "timestamp_timeout=[0-9]*"
+        replace: "timestamp_timeout={{sudo_timeout}}"
+      with_items:
+        - { name: '{{sudoers_file_list.stdout_lines}}' }
+      when:
+        - sudoers_file_list.stdout_lines | length > 0
+  when:
+    - rule_5_2_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.6
+    - s5
+    
+- name: "5.2.7 |  Ensure access to the su command is restricted "
+  block:
+    - name: "5.2.7 |  Ensure access to the su command is restricted |  create group"
+      group:
+        name: "{{sudo_group}}"
+        state: present
+    - name: "5.2.7 |  Ensure access to the su command is restricted |  create group"
+      lineinfile:
+        dest: /etc/pam.d/su
+        line: "auth required pam_wheel.so use_uid group={{sudo_group}}"
+        state: present
+  when:
+    - rule_5_2_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.7
+    - s5   
+
+- name: "5.3.1.1 Ensure latest version of pam is installed"
+  dnf:
+    name: pam
+    state: latest
+  when:
+    - rule_5_3_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.1.1
+
+- name: "5.3.1.2 Ensure latest version of authselect is installed"
+  dnf:
+    name: authselect
+    state: latest
+  when:
+    - rule_5_3_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.1.2
+
+- name: "5.3.1.3 Ensure latest version of libpwquality is installed"
+  dnf:
+    name: libpwquality
+    state: latest
+  when:
+    - rule_5_3_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.1.3
+
+- name: "5.3.2.1 Ensure active authselect profile includes pam modules"
+  block:
+    - name: "5.3.2.1 Ensure active authselect profile includes pam modules | create profile"
+      shell: "authselect create-profile {{authselect_profile}} -b sssd --symlink-meta"
+      ignore_errors: yes
+    - name: "5.3.2.1 Ensure active authselect profile includes pam modules | select profile"
+      shell: "authselect select custom/{{authselect_profile}} with-sudo with-faillock without-nullok --force"
+  when:
+    - rule_5_3_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.2.1
+    - s5
+
+- name: "5.3.2.2 Ensure pam_faillock module is enabled"
+  block:
+    - name: Enable authselect with-faillock feature
+      command: authselect enable-feature with-faillock
+      become: yes
+  notify:
+    - apply authselect changes
+  when:
+    - rule_5_3_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.2.2
+
+- name: "5.3.2.3 Ensure pam_pwquality module is enabled"
+  block:
+    - name: "5.3.2.3 Ensure wireless interfaces are disabled"
+      script: 
+        cmd: rule_5_3_2_3.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "Check if pam_pwquality lines include 'with-pwquality'"
+      command: grep -q "with-pwquality" /etc/pam.d/*
+      register: pwquality_with_feature
+      failed_when: false
+
+    - name: "Enable authselect with-pwquality feature if required"
+      command: authselect enable-feature with-pwquality
+      when: pwquality_with_feature.rc == 0
+
+    - name: "Check if pam_pwquality lines exist without 'with-pwquality'"
+      command: grep -q "pam_pwquality.so" /etc/pam.d/* && ! grep -q "with-pwquality" /etc/pam.d/*
+      register: pwquality_without_feature
+      failed_when: false
+
+    - name: "Apply authselect changes if pam_pwquality lines exist without 'with-pwquality'"
+      command: authselect apply-changes
+      when: pwquality_without_feature.rc == 0
+  when:
+    - rule_5_3_2_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s5
+    - r5.3.2.3
+
+- name: "5.3.2.4 Ensure pam_pwhistory module is enabled"
+  block:
+    - name: Enable authselect with-pwhistory feature
+      command: authselect enable-feature with-pwhistory
+      become: yes
+  notify:
+    - apply authselect changes
+  when:
+    - rule_5_3_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.2.4
+
+- name: "5.3.2.5 Ensure pam_unix module is enabled"
+  block:
+    - name: "5.3.2.5 Ensure pam_unix module is enabled"
+      script: 
+        cmd: rule_5_3_2_5.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_5_3_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.2.5
+
+- name: "5.3.3.1.1 Ensure password failed attempts lockout is configured"
+  block:
+    - name: "5.3.3.1.1 Ensure password failed attempts lockout is configured"
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^\s*deny *= *.*$'
+        line: "deny = {{ failock_deny }}"
+
+    - name: "Remove the deny argument from the pam_faillock.so module in the PAM files"
+      script: 
+        cmd: rule_5_3_3_1_1.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_5_3_3_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.1.1
+
+- name: "5.3.3.1.2 Ensure password unlock time is configured"
+  block:
+    - name: "5.3.3.1.2 Ensure password unlock time is configured"
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^\s*unlock_time *= *.*$'
+        line: "unlock_time = {{ failock_unlock_time }}"
+
+    - name: "Remove the deny argument from the pam_faillock.so module in the PAM files"
+      script: 
+        cmd: rule_5_3_3_1_2.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_5_3_3_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.1.2
+
+- name: "5.3.3.1.3 Ensure password failed attempts lockout includes root account"
+  block:
+    - name: "5.3.3.1.3 Ensure even_deny_root is configured in faillock.conf"
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^\s*even_deny_root'
+        line: "even_deny_root"
+        state: present
+
+    - name: "5.3.3.1.3 Ensure root_unlock_time is set to 60 or more in faillock.conf"
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^\s*root_unlock_time\s*='
+        line: "root_unlock_time = 60"
+        state: present
+        
+    - name: "5.3.3.1.3 Remove the even_deny_root and root_unlock_time arguments from the pam_faillock.so module in the PAM files"
+      script: 
+        cmd: rule_5_3_3_1_2.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_5_3_3_1_3
+  tags:
+    - level2_server
+    - level2_workstation
+    - s5
+    - r5.3.3.1.3
+
+- name: "5.3.3.2.1 Ensure password number of changed characters is configured and update PAM files"
+  vars:
+    pwquality_conf_path: "/etc/security/pwquality.conf"
+    pwquality_conf_d_path: "/etc/security/pwquality.conf.d/50-pwdifok.conf"
+  block:
+    - name: "5.3.3.2.1 Ensure difok is set in /etc/security/pwquality.conf"
+      lineinfile:
+        path: "{{ pwquality_conf_path }}"
+        regexp: '^\s*difok\s*=.*$'
+        line: "difok = {{ difok_value }}"
+        state: present
+
+    - name: "5.3.3.2.1 Ensure the directory /etc/security/pwquality.conf.d/ exists"
+      file:
+        path: /etc/security/pwquality.conf.d/
+        state: directory
+        mode: '0755'
+
+    - name: "5.3.3.2.1 Create or modify .conf file in /etc/security/pwquality.conf.d/ to set difok"
+      lineinfile:
+        path: "{{ pwquality_conf_d_path }}"
+        regexp: '^\s*difok\s*=.*$'
+        line: "difok = {{ difok_value }}"
+        create: yes
+        state: present
+
+    - name: "5.3.3.2.1 Create script to remove difok setting from pam_pwquality.so in PAM files"
+      script: 
+        cmd: rule_5_3_3_2_1.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_5_3_3_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.2.1
+
+- name: "5.3.3.2.2 Ensure minimum password length is configured"
+  block:
+    - name: 5.3.3.2.2 Ensure minlen is set to 14 in /etc/security/pwquality.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\sminlen\s='
+        line: '# minlen ='
+        backrefs: yes
+        state: present
+
+    - name: 5.3.3.2.2 Ensure /etc/security/pwquality.conf.d/ directory exists
+      file:
+        path: /etc/security/pwquality.conf.d/
+        state: directory
+        mode: '0755'
+
+    - name: 5.3.3.2.2 Set minlen to 14 in /etc/security/pwquality.conf.d/50-pwlength.conf
+      lineinfile:
+        path: /etc/security/pwquality.conf.d/50-pwlength.conf
+        create: yes
+        line: 'minlen = 14'
+        state: present
+
+    - name: "5.3.3.2.2 Create script to remove difok setting from pam_pwquality.so in PAM files"
+      script: 
+        cmd: rule_5_3_3_2_2.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_5_3_3_2_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s5
+    - r5.3.3.2.2
+
+- name: "5.3.3.2.4 Ensure password same consecutive characters is configured"
+  block:
+    - name: "5.3.3.2.4 Ensure /etc/security/pwquality.conf.d directory exists"
+      file:
+        path: /etc/security/pwquality.conf.d
+        state: directory
+
+    - name: "5.3.3.2.4 Remove any existing maxrepeat settings from /etc/security/pwquality.conf"
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*maxrepeat\s*='
+        state: absent
+
+    - name: "5.3.3.2.4 Add or modify maxrepeat setting in /etc/security/pwquality.conf.d/50-pwrepeat.conf"
+      lineinfile:
+        path: /etc/security/pwquality.conf.d/50-pwrepeat.conf
+        line: "maxrepeat = 3"
+        create: yes
+
+    - name: "5.3.3.2.4 Remove maxrepeat setting from PAM files if present"
+      shell: |
+        for l_pam_file in system-auth password-auth; do
+          l_authselect_file="/etc/authselect/$(head -1 /etc/authselect/authselect.conf | grep 'custom/')/$l_pam_file"
+          sed -ri 's/(^\s*password\s+(requisite|required|sufficient)\s+pam_pwquality\.so.*)(\s+maxrepeat\s*=\s*\S+)(.*$)/\1\4/' "$l_authselect_file"
+        done
+        authselect apply-changes 
+  when:
+    - rule_5_3_3_2_4        
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.2.4    
+
+- name: "5.3.3.2.5 Ensure password maximum sequential characters is configured"
+  block:
+    - name: "5.3.3.2.5 Ensure /etc/security/pwquality.conf.d directory exists"
+      file:
+        path: /etc/security/pwquality.conf.d
+        state: directory
+
+    - name: "5.3.3.2.5 Remove any existing maxsequence settings from /etc/security/pwquality.conf"
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: '^\s*maxsequence\s*='
+        state: absent
+
+    - name: "5.3.3.2.5 Add or modify maxsequence setting in /etc/security/pwquality.conf.d/50-pwmaxsequence.conf"
+      lineinfile:
+        path: /etc/security/pwquality.conf.d/50-pwmaxsequence.conf
+        line: "maxsequence = 3"
+        create: yes
+
+    - name: "5.3.3.2.5 Remove maxsequence setting from PAM files if present"
+      shell: |
+        for l_pam_file in system-auth password-auth; do
+          l_authselect_file="/etc/authselect/$(head -1 /etc/authselect/authselect.conf | grep 'custom/')/$l_pam_file"
+          sed -ri 's/(^\s*password\s+(requisite|required|sufficient)\s+pam_pwquality\.so.*)(\s+maxsequence\s*=\s*\S+)(.*$)/\1\4/' "$l_authselect_file"
+        done
+        authselect apply-changes
+  when:
+    - rule_5_3_3_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.2.5
+
+- name: "5.3.3.2.6 Ensure password dictionary check is enabled"
+  block:
+    - name: "5.3.3.2.6 Ensure /etc/security/pwquality.conf.d directory exists"
+      file:
+        path: /etc/security/pwquality.conf.d
+        state: directory
+
+    - name: "5.3.3.2.6 Comment out or remove any dictcheck = 0 settings in pwquality.conf and pwquality.conf.d/*.conf"
+      shell: |
+        sed -ri 's/^\s*dictcheck\s*= *0/# &/' /etc/security/pwquality.conf
+        sed -ri 's/^\s*dictcheck\s*= *0/# &/' /etc/security/pwquality.conf.d/*.conf
+
+    - name: "5.3.3.2.6 Add or modify dictcheck setting in /etc/security/pwquality.conf.d/50-pwdictcheck.conf"
+      lineinfile:
+        path: /etc/security/pwquality.conf.d/50-pwdictcheck.conf
+        line: "dictcheck = 1"
+        create: yes
+
+    - name: "5.3.3.2.6 Remove dictcheck setting from PAM files if present"
+      shell: |
+        for l_pam_file in system-auth password-auth; do
+          l_authselect_file="/etc/authselect/$(head -1 /etc/authselect/authselect.conf | grep 'custom/')/$l_pam_file"
+          sed -ri 's/(^\s*password\s+(requisite|required|sufficient)\s+pam_pwquality\.so.*)(\s+dictcheck\s*=\s*\S+)(.*$)/\1\4/' "$l_authselect_file"
+        done
+        authselect apply-changes
+  when:
+    - rule_5_3_3_2_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.2.6
+
+- name: "5.3.3.2.7 Ensure password quality is enforced for the root user"
+  block:
+    - name: "5.3.3.2.7 Ensure /etc/security/pwquality.conf.d directory exists"
+      file:
+        path: /etc/security/pwquality.conf.d
+        state: directory
+
+    - name: "5.3.3.2.7 Add or modify enforce_for_root setting in /etc/security/pwquality.conf.d/50-pwroot.conf"
+      lineinfile:
+        path: /etc/security/pwquality.conf.d/50-pwroot.conf
+        line: "enforce_for_root"
+        create: yes
+  when:
+    - rule_5_3_3_2_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.2.7
+
+- name: "5.3.3.3.1 Ensure password history remember is configured and update PAM files"
+  block:
+    - name: "5.3.3.3.1 Ensure remember is set in /etc/security/pwhistory.conf"
+      lineinfile:
+        path: "{{ pwhistory_conf_path }}"
+        regexp: '^\s*remember\s*=.*$'
+        line: "remember = {{ remember_value }}"
+        state: present
+
+    - name: "5.3.3.3.1 Ensure the directory /etc/security/pwhistory.conf.d/ exists"
+      file:
+        path: /etc/security/pwhistory.conf.d/
+        state: directory
+        mode: '0755'
+
+    - name: "5.3.3.3.1 Create or modify .conf file in /etc/security/pwhistory.conf.d/ to set remember"
+      lineinfile:
+        path: "{{ pwhistory_conf_d_path }}"
+        regexp: '^\s*remember\s*=.*$'
+        line: "remember = {{ remember_value }}"
+        create: yes
+        state: present
+
+    - name: "5.3.3.3.1 Create script to remove remember setting from pam_pwhistory.so in PAM files"
+      script: 
+        cmd: rule_5_3_3_3_1.sh
+      register: script_return
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_5_3_3_3_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.3.3.3.1
+
+- name: "5.3.3.3.2 Ensure password history is enforced for the root user"
+  block:
+    - name: "5.3.3.3.2 Ensure enforce_for_root is set in /etc/security/pwhistory.conf"
+      lineinfile:
+        path: /etc/security/pwhistory.conf
+        regexp: '^\s*enforce_for_root\s*='
+        line: 'enforce_for_root'
+        create: yes
+      when:
+        - rule_5_3_3_3_2
+      tags:
+        - level1_server
+        - level1_workstation
+        - s5
+        - r5.3.3.3.2
+
+- name: "5.3.3.3.3 Ensure pam_pwhistory includes use_authtok"
+  block:
+    - name: "5.3.3.3.3 Determine the authselect profile path"
+      shell: |
+        l_pam_profile=$(head -1 /etc/authselect/authselect.conf)
+        if grep -Pq -- '^custom\/' <<< "$l_pam_profile"; then
+          echo "/etc/authselect/$l_pam_profile"
+        else
+          echo "/usr/share/authselect/default/$l_pam_profile"
+        fi
+      register: authselect_profile_path
+      changed_when: false
+
+    - name: "5.3.3.3.3 Check if use_authtok is included in pam_pwhistory configuration"
+      shell: |
+        grep -P -- '^\s*password\s+(requisite|required|sufficient)\s+pam_pwhistory\.so.*use_authtok\b' "{{ authselect_profile_path.stdout }}/password-auth" "{{ authselect_profile_path.stdout }}/system-auth"
+      register: check_use_authtok
+      failed_when: false
+      changed_when: false
+
+    - name: "5.3.3.3.3 Add use_authtok to pam_pwhistory if missing"
+      block:
+        - name: "5.3.3.3.3 Add use_authtok to password-auth"
+          replace:
+            path: "{{ authselect_profile_path.stdout }}/password-auth"
+            regexp: '(^\s*password\s+(requisite|required|sufficient)\s+pam_pwhistory\.so.*)(\s+use_authtok\b)?'
+            replace: '\1 use_authtok'
+          when: "'use_authtok' not in check_use_authtok.stdout"
+
+        - name: "5.3.3.3.3 Add use_authtok to system-auth"
+          replace:
+            path: "{{ authselect_profile_path.stdout }}/system-auth"
+            regexp: '(^\s*password\s+(requisite|required|sufficient)\s+pam_pwhistory\.so.*)(\s+use_authtok\b)?'
+            replace: '\1 use_authtok'
+          when: "'use_authtok' not in check_use_authtok.stdout"
+
+    - name: "5.3.3.3.3 Apply authselect changes"
+      command: authselect apply-changes
+      when: "'use_authtok' not in check_use_authtok.stdout"
+  when:
+    - rule_5_3_3_3_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.3.3
+    - s5
+
+- name: "5.3.3.4.1 Ensure pam_unix does not include nullok"
+  block:
+    - name: "Get the active authselect profile"
+      command: head -1 /etc/authselect/authselect.conf
+      register: authselect_profile
+      check_mode: no
+
+    - name: "5.3.3.4.1 Determine the path of the active profile"
+      set_fact:
+        pam_profile_path: >-
+          {% if authselect_profile.stdout is search('^custom\/') %}
+            /etc/authselect/{{ authselect_profile.stdout }}
+          {% else %}
+            /usr/share/authselect/default/{{ authselect_profile.stdout }}
+          {% endif %}
+
+    - name: "5.3.3.4.1 Check for nullok in the pam_unix.so module in system-auth and password-auth"
+      command: grep -P -- "\bpam_unix\.so\b" {{ pam_profile_path }}/password-auth {{ pam_profile_path }}/system-auth
+      register: pam_unix_check
+      ignore_errors: yes
+
+    - name: "5.3.3.4.1 Set facts for nullok presence"
+      set_fact:
+        nullok_present: "{{ pam_unix_check.stdout is search('nullok') }}"
+        without_nullok_present: "{{ pam_unix_check.stdout is search('{if not \"without-nullok\":nullok}') }}"
+      when: pam_unix_check.stdout != ""
+
+    - name: "5.3.3.4.1 Remove nullok from system-auth and password-auth"
+      shell: |
+        for l_pam_file in system-auth password-auth; do
+          l_file="/etc/authselect/{{ authselect_profile.stdout | regex_replace('^custom\/', '') }}/$l_pam_file"
+          if [ -f "$l_file" ]; then
+            sed -ri 's/(^\s*password\s+(requisite|required|sufficient)\s+pam_unix\.so\s+.*)(nullok)(\s*.*)$/\1\3/g' "$l_file"
+          fi
+        done
+      when: nullok_present | default(false)
+
+    - name: "5.3.3.4.1 Enable without-nullok feature if necessary"
+      command: authselect enable-feature without-nullok
+      when: not without_nullok_present | default(true)
+
+    - name: "5.3.3.4.1 Apply authselect changes"
+      command: authselect apply-changes
+  when:
+    - rule_5_3_3_4_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.4.1
+    - s5      
+
+- name: "5.3.3.4.2 Ensure pam_unix does not include remember"
+  block:
+    - name: "5.3.3.4.2 Get the active authselect profile"
+      command: head -1 /etc/authselect/authselect.conf
+      register: authselect_profile
+      check_mode: no
+
+    - name: "5.3.3.4.2 Determine the path of the active profile"
+      set_fact:
+        pam_profile_path: >-
+          {% if authselect_profile.stdout is search('^custom\/') %}
+            /etc/authselect/{{ authselect_profile.stdout }}
+          {% else %}
+            /usr/share/authselect/default/{{ authselect_profile.stdout }}
+          {% endif %}
+
+    - name: "5.3.3.4.2 Check for remember argument in the pam_unix.so module in system-auth and password-auth"
+      command: grep -P -- '^\s*password\s+.*pam_unix\.so\b' {{ pam_profile_path }}/password-auth {{ pam_profile_path }}/system-auth
+      register: pam_unix_check
+      ignore_errors: yes
+
+    - name: "5.3.3.4.2 Set facts for remember presence"
+      set_fact:
+        remember_present: "{{ pam_unix_check.stdout is search('remember=') }}"
+      when: pam_unix_check.stdout != ""
+
+    - name: "5.3.3.4.2 Remove remember argument from system-auth and password-auth"
+      shell: |
+        for l_pam_file in system-auth password-auth; do
+          l_file="/etc/authselect/{{ authselect_profile.stdout | regex_replace('^custom\/', '') }}/$l_pam_file"
+          if [ -f "$l_file" ]; then
+            sed -ri 's/(^\s*password\s+(requisite|required|sufficient)\s+pam_unix\.so\s+.*)(remember=[1-9][0-9]*)(\s*.*)$/\1\3/g' "$l_file"
+          fi
+        done
+      when: remember_present | default(false)
+
+    - name: "5.3.3.4.2 Apply authselect changes"
+      command: authselect apply-changes
+  when:
+    - rule_5_3_3_4_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.4.2
+    - s5
+
+- name: "5.3.3.4.3 Ensure password hashing algorithm is SHA-512 or yescrypt"
+  block:
+    - name: "5.3.3.4.3 Ensure password hashing algorithm is SHA-512 or yescrypt | no hashing"
+      lineinfile:
+        path: /etc/libuser.conf
+        line: "crypt_style = sha512"
+        regexp: '^crypt_style\s*='
+        
+    - name: "5.3.3.4.3 Ensure password hashing algorithm is SHA-512 or yescrypt | yescrypt"  
+      lineinfile:
+        path: /etc/login.defs
+        regexp: "^ENCRYPT_METHOD.*"
+        line: "ENCRYPT_METHOD SHA512"
+        
+    - name: "5.3.3.4.3 Ensure password hashing algorithm is SHA-512 or yescrypt" 
+      shell: ls -d /etc/authselect/$(head -1 /etc/authselect/authselect.conf | grep 'custom/')/$fn
+      register: authselect_profile_path
+      
+    - name: "5.3.3.4.3 Ensure password hashing algorithm is SHA-512 or yescrypt"
+      replace:
+        path: "{{item}}"
+        regexp: "(password.*requisite.*pam_unix.so.*)([md5|blowfish|bigcrypt|sha256|yescrypt])(.*)"
+        replace: '\1 sha512 \3'
+      with_items:
+        - "{{authselect_profile_path.stdout}}/password-auth"
+        - "{{authselect_profile_path.stdout}}/system-auth"
+        
+    - name: "5.3.3.4.3 Ensure password hashing algorithm is SHA-512 or yescrypt"
+      shell: authselect apply-changes
+  when:
+    - rule_5_3_3_4_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.4.3
+    - s5
+
+- name: "5.3.3.4.4 Ensure pam_unix includes use_authtok"
+  block:
+    - name: "5.3.3.4.4 Get the active authselect profile"
+      command: head -1 /etc/authselect/authselect.conf
+      register: authselect_profile
+      check_mode: no
+
+    - name: "5.3.3.4.4 Determine the path of the active profile"
+      set_fact:
+        pam_profile_path: >-
+          {% if authselect_profile.stdout is search('^custom\/') %}
+            /etc/authselect/{{ authselect_profile.stdout }}
+          {% else %}
+            /usr/share/authselect/default/{{ authselect_profile.stdout }}
+          {% endif %}
+
+    - name: "5.3.3.4.4 Debug pam_profile_path"
+      debug:
+        msg: "The path of the active profile is: {{ pam_profile_path }}"
+      when:
+        - pam_profile_path is defined
+
+    - name: "5.3.3.4.4 Check if use_authtok is included in pam_unix.so module"
+      command: grep -P -- '^\s*password\s+(requisite|required|sufficient)\s+pam_unix\.so\s+([^#\n\r]+\s+)?use_authtok\b' {{ pam_profile_path | regex_replace("\s","") }}/password-auth {{ pam_profile_path | regex_replace("\s","") }}/system-auth
+      register: pam_unix_check
+      ignore_errors: yes
+      when:
+        - pam_profile_path is defined
+
+    - name: "5.3.3.4.4 Debug pam_unix_check"
+      debug:
+        msg: "Output of grep command: {{ pam_unix_check.stdout }}"
+      when:
+        - pam_unix_check.stdout is defined
+
+    - name: "5.3.3.4.4 Set facts for use_authtok presence"
+      set_fact:
+        use_authtok_present: "{{ pam_unix_check.stdout is search('use_authtok') }}"
+      when:
+        - pam_unix_check.stdout != ""
+
+    - name: "5.3.3.4.4 Add use_authtok to pam_unix.so if necessary"
+      shell: |
+        for l_authselect_file in {{ pam_profile_path }}/password-auth {{ pam_profile_path }}/system-auth; do
+          if grep -Pq '^\s*password\s+([^#\n\r]+)\s+pam_unix\.so\s+([^#\n\r]+\s+)?use_authtok\b' "$l_authselect_file"; then
+            echo "- \"use_authtok\" is already set"
+          else
+            echo "- \"use_authtok\" is not set. Updating template"
+            sed -ri 's/(^\s*password\s+(requisite|required|sufficient)\s+pam_unix\.so\s+.*)$/& use_authtok/g' "$l_authselect_file"
+          fi
+        done
+      when:
+        - not use_authtok_present
+
+    - name: "5.3.3.4.4 Apply authselect changes"
+      command: authselect apply-changes
+  when:
+    - rule_5_3_3_4_4
+  tags:
+    - s5
+    - r5.3.3.4.4
+    - level1_server
+    - level1_workstation
+
+- name: "5.4.1.1 Ensure password expiration is configured"
+  block:
+    - name: "5.4.1.1 Ensure password expiration is configured | change conf"
+      lineinfile:
+        dest: /etc/login.defs
+        regexp: "^\\s*PASS_MAX_DAYS\\s*.*$"
+        line: "PASS_MAX_DAYS {{ password_max_days }}"
+        state: present
+
+    - name: "5.4.1.1 Ensure password expiration is configured | get users"
+      command: "awk -F: '{if($5 != {{ password_max_days }}) print $1}' /etc/shadow"
+      register: users_max_output
+
+    - name: "5.4.1.1 Ensure password expiration is configured | set conf for users"
+      command: "chage --maxdays {{ password_max_days }} {{ item }}"
+      with_items: "{{ users_max_output.stdout_lines }}"
+      when:
+        - item != login_user
+      notify: 
+        - chage user
+  when:
+    - rule_5_4_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.1
+    - s5 
+    
+- name: "5.4.1.2 Ensure minimum password days is configured"
+  block:
+    - name: "5.4.1.2 Ensure minimum password days is configured | change conf"
+      lineinfile:
+        dest: /etc/login.defs
+        regexp: "^\\s*PASS_MIN_DAYS\\s*.*$"
+        line: "PASS_MIN_DAYS {{ password_min_days }}"
+        state: present
+
+    - name: "5.4.1.2 Ensure minimum password days is configured | get users"
+      command: "awk -F: '{if($4 != {{ password_min_days }}) print $1}' /etc/shadow"
+      register: users_min_output
+
+    - name: "5.4.1.2 Ensure minimum password days is configured | set conf for users"
+      command: "chage --mindays {{ password_min_days }} {{ item }}"
+      with_items: "{{ users_min_output.stdout_lines }}"
+  when:
+    - rule_5_4_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.2
+    - s5  
+
+- name: "5.4.1.3 Ensure password expiration warning days is configured"
+  block:
+    - name: "5.4.1.3 Ensure password expiration warning days is configured"
+      lineinfile:
+        dest: /etc/login.defs
+        regexp: "^\\s*PASS_WARN_AGE\\s*.*$"
+        line: "PASS_WARN_AGE {{ pass_warn_age }}"
+        state: present
+
+    - name: "5.4.1.3 Ensure password expiration warning days is configured"
+      command: "awk -F: '{if($6 != {{ pass_warn_age }}) print $1}' /etc/shadow"
+      register: users_warn_output
+
+    - name: "5.4.1.3 Ensure password expiration warning days is configured"
+      command: "chage --warndays {{ pass_warn_age }} {{ item }}"
+      with_items: "{{ users_warn_output.stdout_lines  }}"
+  when:
+    - rule_5_4_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.3
+    - s5  
+       
+- name: "5.4.1.4 Ensure strong password hashing algorithm is configured"
+  block:
+    - name: "5.4.1.4 Set ENCRYPT_METHOD to SHA512 in /etc/login.defs if not already set"
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^\s*ENCRYPT_METHOD'
+        line: 'ENCRYPT_METHOD {{ encrypt_method_value }}'
+        create: yes
+      when:
+        - rule_5_4_1_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.4
+    - s5  
+    
+- name: "5.4.1.5 Ensure inactive password lock is configured"
+  block:
+    - name: "5.4.1.5 Set default inactive password lock period to 45 days"
+      shell: useradd -D -f 45
+
+    - name: "5.4.1.5 Verify inactive password lock period is set to 45 days"
+      shell: useradd -D | grep -E '^INACTIVE\s*=\s*45$'
+      register: inactive_lock_check
+      failed_when: inactive_lock_check.rc != 0
+      changed_when: false
+
+    - name: "5.4.1.5 Get list of all regular users"
+      shell: |
+        awk -F: '($3 >= 1000) && ($3 != 65534) {print $1}' /etc/passwd
+      register: users_list
+
+    - name: "5.4.1.5 Configure inactive password lock for all users"
+      shell: chage --inactive 45 {{ item }}
+      with_items: "{{ users_list.stdout_lines }}"
+
+    - name: "5.4.1.5 Configure inactive password lock for root user"
+      shell: chage --inactive 45 root
+  when:
+    - rule_5_4_1_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.5
+    - s5
+
+- name: "5.4.1.6 Ensure all users last password change date is in the past"
+  shell: |
+    awk -F: '/^[^:]+:[^!*]/{print $1}' /etc/shadow | while read -r usr; \
+    do change=$(date -d "$(chage --list $usr | grep '^Last password change' | cut -d: -f2 | grep -v 'never$')" +%s); \
+    if [[ "$change" -gt "$(date +%s)" ]]; then \
+    echo "User: \"$usr\" last password change was \"$(chage --list $usr | grep '^Last password change' | cut -d: -f2)\""; fi; done
+  register: script_output
+  failed_when: script_output.stdout | length > 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_1_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.6
+    - s5 
+
+- name: "5.4.2.1 Ensure root is the only UID 0 account"
+  block:
+    - name: "5.4.2.1  Check for accounts with UID 0 other than root"
+      shell: |
+        awk -F: '$3 == 0 && $1 != "root" {print $1}' /etc/passwd
+      register: uid_0_accounts
+      changed_when: false
+
+    - name: "5.4.2.1  Modify users with UID 0 other than root"
+      block:
+        - name: "5.4.2.1  Generate a unique UID for each user with UID 0"
+          shell: |
+            awk -F: 'END {print $3 + 1}' /etc/passwd
+          register: next_uid
+          changed_when: false
+
+        - name: "5.4.2.1 Change UID for users with UID 0 other than root"
+          command: usermod -u "{{ next_uid.stdout }}" "{{ item }}"
+          loop: "{{ uid_0_accounts.stdout_lines }}"
+          when:
+            - item != ""
+            - uid_0_accounts.stdout != ""
+
+    - name: "5.4.2.1 Ensure root account has UID 0"
+      shell: |
+        awk -F: '($1 == "root" && $3 != 0) {print $3}' /etc/passwd
+      register: root_uid_check
+      changed_when: false
+
+    - name: "5.4.2.1 Change root UID to 0 if necessary"
+      command: usermod -u 0 root
+      when: root_uid_check.stdout != ""
+  when: 
+    - rule_5_4_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.1
+    - s5
+    
+- name: "5.4.2.2 i 5.4.2.3 Ensure root is the only GID 0 account"
+  block:
+    - name: "5.4.2.2 i 5.4.2.3 Check for accounts with GID 0 other than root"
+      shell: |
+        awk -F: '$4 == 0 && $1 != "root" {print $1}' /etc/passwd
+      register: gid_0_accounts
+      changed_when: false
+
+    - name: "5.4.2.2 i 5.4.2.3 Check for groups with GID 0 other than root"
+      shell: |
+        awk -F: '$3 == 0 && $1 != "root" {print $1}' /etc/group
+      register: gid_0_groups
+      changed_when: false
+
+    - name: "5.4.2.2 i 5.4.2.3 Remove or change GID 0 from accounts other than root"
+      block:
+        - name: "5.4.2.2 i 5.4.2.3 Remove accounts with GID 0 other than root"
+          user:
+            name: "{{ item }}"
+            state: absent
+          loop: "{{ gid_0_accounts.stdout_lines }}"
+          when: gid_0_accounts.stdout != ""
+
+    - name: "5.4.2.2 i 5.4.2.3 Remove or change GID 0 from groups other than root"
+      block:
+        - name: "5.4.2.2 i 5.4.2.3 Remove groups with GID 0 other than root"
+          group:
+            name: "{{ item }}"
+            state: absent
+          loop: "{{ gid_0_groups.stdout_lines }}"
+          when: gid_0_groups.stdout != ""
+
+    - name: "5.4.2.2 i 5.4.2.3 Set GID 0 for the root user if any other account found with GID 0"
+      command: usermod -g 0 root
+      when: gid_0_accounts.stdout != ""
+
+    - name: "5.4.2.2 i 5.4.2.3 Set GID 0 for the root group if any other group found with GID 0"
+      command: groupmod -g 0 root
+      when: gid_0_groups.stdout != ""
+
+  when: 
+    - rule_5_4_2_2
+    - rule_5_4_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.2
+    - r5.4.2.3
+    - s5
+
+- name: "5.4.2.4 Ensure root account access is controlled"
+  shell: passwd -S root | grep -i 'Password set'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2_4
+    - s5 
+
+- name: "5.4.2.6 Ensure root user umask is configured"
+  block:
+    - name: "5.4.2.6 Ensure root user umask is configured | get files"
+      command: ls /etc/profile.d/*.sh
+      register: script_list
+      failed_when: script_list.rc not in [0,2]
+
+    - name: "5.4.2.6 Ensure root user umask is configured | remove umask from scripts"
+      lineinfile:
+        state: absent
+        regexp: "umask .*"
+        path: "{{ item }}"
+      with_items: "{{ script_list.stdout_lines }}"
+      when:
+        - script_list.stdout | length > 0
+
+    - name: "5.4.2.6 Ensure root user umask is configured | set umask.sh"
+      lineinfile:
+        path: /etc/profile.d/set_umask.sh
+        regexp: ".*umask.*"
+        line: 'umask 0027'
+        create: yes
+
+    - name: "5.4.2.6 Ensure root user umask is configured | change umask in login.defs and bashrc"
+      replace:
+        path: "{{ item }}"
+        regexp: '(umask|UMASK)\s*[0-7][0-7][0-7]'
+        replace: '\1 0027'
+      with_items:
+        - /etc/login.defs
+        - /etc/bashrc
+  when:
+    - rule_5_4_2_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.6
+    - s5
+
+- name: "5.4.2.7 i 5.4.2.8 | Ensure system accounts do not have a valid login shell"
+  block:
+    - name: 5.4.2.7 Ensure system accounts do not have a valid login shell  | Get users
+      shell: "awk -F: '($3 < {{ min_uid }}) {print $1 }' /etc/passwd"
+      changed_when: false
+      check_mode: false
+      register: system_account
+
+    - name: 5.4.2.7 i 5.4.2.8 Ensure system accounts do not have a valid login shell  | Lock users
+      user:
+        name: "{{ item }}"
+        password_lock: true
+      with_items:
+        - "{{ system_account.stdout_lines }}"
+      when:
+        - item != "root"
+
+    - name: 5.4.2.7 i 5.4.2.8 Ensure system accounts do not have a valid login shell  | Set shell to nologin
+      user:
+        name: "{{ item }}"
+        shell: /sbin/nologin
+      with_items:
+        - "{{ system_account.stdout_lines }}"
+      when:
+        - item != "root"
+        - item != "sync"
+        - item != "shutdown"
+        - item != "halt"
+  when:
+    - rule_5_4_2_7
+    - rule_5_4_2_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.7
+    - r5.4.2.8
+    - s5  
+
+- name: "5.4.3.1 Ensure nologin is not listed in /etc/shells"
+  block:
+    - name: "5.4.3.1 Remove 'nologin' entries from /etc/shells"
+      lineinfile:
+        path: /etc/shells
+        state: absent
+        regexp: '^\s*([^#\n\r]+)?\/nologin\b'
+  when:
+    - rule_5_4_3_1      
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.3.1
+    - s5
+
+- name: "5.4.3.2 Ensure default user shell timeout is configured"
+  block:
+    - name: "5.4.3.2 Get list of shell scripts in /etc/profile.d"
+      command: find /etc/profile.d -type f -name "*.sh"
+      register: profile_scripts
+      failed_when: false
+      changed_when: false
+
+    - name: "5.4.3.2 Remove existing TMOUT settings from /etc/profile.d/*.sh"
+      lineinfile:
+        path: "{{ item }}"
+        regexp: '^\s*TMOUT\s*='
+        state: absent
+      loop: "{{ profile_scripts.stdout_lines }}"
+
+    - name: "5.4.3.2 Ensure TMOUT is set to 900 seconds in /etc/profile.d/50-tmout.sh"
+      copy:
+        dest: /etc/profile.d/50-tmout.sh
+        content: |
+          typeset -xr TMOUT=900
+        mode: '0644'
+
+    - name: "5.4.3.2 Remove existing TMOUT settings from /etc/bashrc"
+      lineinfile:
+        path: /etc/bashrc
+        regexp: '^\s*TMOUT\s*='
+        state: absent
+
+    - name: "5.4.3.2 Remove existing TMOUT settings from /etc/profile"
+      lineinfile:
+        path: /etc/profile
+        regexp: '^\s*TMOUT\s*='
+        state: absent
+
+    # - name: "5.4.3.2 Ensure TMOUT is configured correctly in /etc/bashrc and /etc/profile"
+    #   lineinfile:
+    #     path: "{{ item }}"
+    #     regexp: '^TMOUT='
+    #     line: 'TMOUT=900'
+    #     create: yes
+    #   loop:
+    #     - /etc/bashrc
+    #     - /etc/profile
+
+  when:
+    - rule_5_4_3_2      
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.3.2
+    - s5
+
+- name: "5.4.3.3 Ensure default user umask is configured"
+  script: 
+    cmd: rule_5_4_3_3.sh
+  register: script_return
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_3_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.3.3
+    - s5
+
+
