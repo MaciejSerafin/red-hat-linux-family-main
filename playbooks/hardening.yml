@@ -1,0 +1,4 @@
+---
+- hosts: hardening_hosts
+  roles:
+    - roles/hardening

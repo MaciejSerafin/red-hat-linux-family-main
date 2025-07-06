@@ -1,0 +1,4 @@
+---
+- hosts: audit_hosts
+  roles:
+    - roles/audit
