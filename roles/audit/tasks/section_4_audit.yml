@@ -1,0 +1,152 @@
+---
+- name: "4.1.1 Ensure nftables is installed"
+  shell: |
+     rpm -q nftables
+  register: nftables_status
+  failed_when: '"nftables-" not in nftables_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_4_1_1
+    - firewall_name == 'nftables' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.1.1
+    - nftables
+    
+- name: "4.1.2 Ensure a single firewall configuration utility is in use"
+  script:
+    cmd: rule_4_1_2.sh
+  register: fw_status
+  failed_when: '"Pass" not in fw_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_4_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.1.2
+    
+- name: "4.2.1 Ensure firewalld drops unnecessary services and ports"
+  block:
+    - name: "4.2.1 Ensure firewalld drops unnecessary services and ports"
+      shell:  |
+        systemctl is-enabled firewalld.service | grep -q 'enabled' && firewall-cmd --list-all --zone="$(firewall-cmd --list-all | awk '/\(active\)/ { print $1 }')" | grep -P -- '^\h*(services:|ports:)'
+      register: firewalld_ports
+      failed_when: no
+      changed_when: no
+    - name: "4.2.1 Ensure firewalld drops unnecessary services and ports"
+      fail:
+        msg: "{{firewalld_ports.stdout}}"
+  ignore_errors: yes
+  when:
+    - rule_4_2_1
+    - firewall_name == 'firewalld' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.2.1
+    - firewalld
+
+- name: "4.2.2 Ensure firewalld loopback traffic is configured"
+  script:
+    cmd: rule_4_2_2.sh
+  register: script_return
+  failed_when: '"PASS" not in script_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_4_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.2.2
+  
+- name: "4.3.1 Ensure nftables base chains exist"
+  shell:  |
+    nft list ruleset | grep 'hook {{item}}'
+  register: nft_chain
+  failed_when: nft_chain.stdout | length < 5
+  changed_when: no
+  ignore_errors: yes
+  with_items:
+    - input
+    - forward
+    - output
+  when:
+    - rule_4_3_1
+    - firewall_name == 'nftables' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.1
+    - nftables    
+
+- name: "4.3.2 Ensure nftables established connections are configured"
+  block:
+    - name: "4.3.2 Ensure nftables established connections are configured"
+      shell:  |
+        systemctl is-enabled nftables.service | grep -q 'enabled' && nft list ruleset | awk '/hook input/,/}/' | grep 'ct state'
+      register: nftables_connections
+      failed_when: no
+      changed_when: no
+    - name: "4.3.2 Ensure nftables established connections are configured"
+      fail:
+        msg: "{{nftables_connections.stdout}}"
+  ignore_errors: yes
+  when:
+    - rule_4_3_2
+    - firewall_name == 'nftables' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.2
+    - nftables
+
+- name: "4.3.3 Ensure nftables default deny firewall policy"
+  shell:  |
+    systemctl --quiet is-enabled nftables.service && nft list ruleset | grep 'hook {{item}}' | grep -v 'policy drop'
+  register: nft_drop
+  failed_when: nft_drop.stdout|length > 0
+  changed_when: no
+  ignore_errors: yes
+  with_items:
+    - input
+    - forward
+  when:
+    - rule_4_3_3
+    - firewall_name == 'nftables' 
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.3
+    - nftables
+
+- name: "4.3.4 Ensure nftables loopback traffic is configured"
+  script:
+    cmd: rule_4_3_4.sh
+  register: nf_status
+  failed_when: '"PASS" not in nf_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_4_3_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s4
+    - r4.3.4
+
+
+
+
+  

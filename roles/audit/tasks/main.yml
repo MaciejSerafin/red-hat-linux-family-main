@@ -1,0 +1,45 @@
+---
+# In case you use root to play Ansible there is need to create other user with sudo to not lose access
+
+- include_tasks: section_1_audit.yml
+  # become: true
+  when: section_1
+  tags:
+    - always
+
+
+- include_tasks: section_2_audit.yml
+  # become: true
+  when: section_2
+  tags:
+    - always
+
+- include_tasks: section_3_audit.yml
+  # become: true
+  when: section_3 
+  tags:
+    - always
+
+- include_tasks: section_4_audit.yml
+  # become: true
+  when: section_4
+  tags:
+    - always
+
+- include_tasks: section_5_audit.yml
+  # become: true
+  when: section_5 
+  tags:
+    - always
+
+- include_tasks: section_6_audit.yml
+  # become: true
+  when: section_6 
+  tags:
+    - always
+
+- include_tasks: section_7_audit.yml
+  # become: true
+  when: section_7 
+  tags:
+    - always

@@ -1,0 +1,1244 @@
+---
+
+- name: "1.1.1.1 | Ensure mounting of cramfs filesystems is disabled"
+  block:
+    - name: "1.1.1.1 | Ensure mounting of cramfs filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v cramfs
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module cramfs not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.1 | Ensure mounting of cramfs filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep cramfs
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.1 | Ensure mounting of cramfs filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"cramfs" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.1
+
+
+- name: "1.1.1.2 | Ensure mounting of freevxfs filesystems is disabled"
+  block:
+    - name: "1.1.1.2 | Ensure mounting of freevxfs filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v freevxfs
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module freevxfs not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.2 | Ensure mounting of freevxfs filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep freevxfs
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.2 | Ensure mounting of freevxfs filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"freevxfs" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.2
+
+- name: "1.1.1.3 | Ensure mounting of hfs filesystems is disabled"
+  block:
+    - name: "1.1.1.3 | Ensure mounting of hfs filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v hfs
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module hfs not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.3 | Ensure mounting of hfs filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep hfs
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.3 | Ensure mounting of hfs filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"hfs" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.3
+
+- name: "1.1.1.4 | Ensure mounting of hfsplus filesystems is disabled"
+  block:
+    - name: "1.1.1.4 | Ensure mounting of hfsplus filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v hfsplus
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module hfsplus not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.4 | Ensure mounting of hfsplus filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep hfsplus
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.4 | Ensure mounting of hfsplus filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"hfsplus" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.4
+
+- name: "1.1.1.5 | Ensure mounting of jffs2 filesystems is disabled"
+  block:
+    - name: "1.1.1.5 | Ensure mounting of jffs2 filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v jffs2
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module jffs2 not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.5 | Ensure mounting of jffs2 filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep jffs2
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.5 | Ensure mounting of jffs2 filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"jffs2" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_5
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.5
+
+- name: "1.1.1.6 | Ensure mounting of squashfs filesystems is disabled"
+  block:
+    - name: "1.1.1.6 | Ensure mounting of squashfs filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v squashfs
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module squashfs not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.6 | Ensure mounting of squashfs filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep squashfs
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.6 | Ensure mounting of squashfs filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"squashfs" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_6
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.6
+    
+- name: "1.1.1.7 | Ensure mounting of udf filesystems is disabled"
+  block:
+    - name: "1.1.1.7 | Ensure mounting of udf filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v udf
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module udf not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.7 | Ensure mounting of udf filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep udf
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.7 | Ensure mounting of udf filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"udf" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_7
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.7
+
+- name: "1.1.1.8 | Ensure mounting of usb-storage filesystems is disabled"
+  block:
+    - name: "1.1.1.8 | Ensure mounting of usb-storage filesystems is disabled | How will the module be loaded"
+      shell: modprobe -n -v usb-storage
+      register: modprobe_output
+      failed_when: not ("install /bin/false" in modprobe_output.stdout or "Module usb-storage not found" in modprobe_output.stderr)
+      changed_when: no
+    - name: "1.1.1.8 | Ensure mounting of usb-storage filesystems is disabled | Is the module currently loaded"
+      shell: lsmod | grep usb-storage
+      register: lsmod_output
+      failed_when: lsmod_output.rc == 0
+      changed_when: no   
+    - name: "1.1.1.8 | Ensure mounting of usb-storage filesystems is disabled | Is the module blacklisted"
+      shell: modprobe --showconfig | grep blacklist
+      register: blacklisted_output
+      failed_when: '"usb_storage" not in blacklisted_output.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_8
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.8
+
+- name: "1.1.1.9 Ensure unused filesystems kernel modules are not available"
+  script: 
+    cmd: rule_1_1_1_9.sh
+  register: script_return
+  failed_when: '"REVIEW" not in script_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_1_9
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.1.9
+
+
+
+- name: "1.1.2.1.1 Ensure /tmp is a separate partition"
+  block:
+   - name: "1.1.2.1.1 Ensure /tmp is a separate partition"
+     shell: |
+       findmnt --kernel /tmp
+     register: tmp_status
+     failed_when: '"tmp" not in tmp_status.stdout'
+     changed_when: no
+   - name: "1.1.2.1.1 Ensure /tmp is a separate partition | Ensure that systemd will mount the /tmp partition at boot time"
+     shell: |
+       systemctl is-enabled tmp.mount
+     register: tmp_en_status
+     failed_when: '"static" not in tmp_en_status.stdout'
+     changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_1_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.1.1
+    
+- name: "1.1.2.1.2 Ensure nodev option set on /tmp partition"
+  shell: |
+    findmnt --kernel /tmp | grep nodev
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.1.2
+
+- name: "1.1.2.1.3 Ensure nosuid option set on /tmp partition"
+  shell: |
+    findmnt --kernel /tmp | grep nosuid
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_1_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.1.3
+
+- name: "1.1.2.1.4 Ensure noexec option set on /tmp partition"
+  shell: |
+    findmnt --kernel /tmp | grep noexec
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_1_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.1.4
+
+- name: "1.1.2.2.1 Ensure /dev/shm is a separate partition"
+  block:
+    - name: "1.1.2.2.1 Ensure /dev/shm is a separate partition"
+      shell: |
+        findmnt --kernel /dev/shm
+      register: dev_shm_status
+      failed_when: '"dev/shm" not in dev_shm_status.stdout'
+      changed_when: no
+
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_2_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.2.1
+
+- name: "1.1.2.2.2 Ensure nodev option set on /dev/shm partition"
+  shell: |
+    findmnt --kernel /dev/shm | grep nodev
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_2_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.2.2
+
+
+- name: "1.1.2.2.3 Ensure nosuid option set on /dev/shm partition"
+  shell: |
+    findmnt --kernel /dev/shm | grep nosuid
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_2_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.2.3 
+
+- name: "1.1.2.2.4 Ensure noexec option set on /dev/shm partition"
+  shell: |
+    findmnt --kernel /dev/shm | grep noexec
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_2_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.2.4
+
+
+
+- name: "1.1.2.3.1 Ensure /home is a separate partition"
+  shell: |
+    findmnt --kernel /home
+  register: home_status
+  failed_when: '"home" not in home_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_3_1
+  tags:
+    - level2_workstation
+    - level2_server
+    - s1
+    - r1.1.2.3.1  
+
+- name: "1.1.2.3.2 Ensure nodev option set on /home partition"
+  shell: |
+    findmnt --kernel /home | grep nodev
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_3_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.3.2  
+
+- name: "1.1.2.3.3 Ensure nosuid option set on /home partition"
+  shell: |
+    findmnt --kernel /home | grep nosuid
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_3_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.3.3  
+
+
+
+- name: "1.1.2.4.1 Ensure /var is a separate partition"
+  shell: |
+   findmnt --kernel /var
+  register: var_status
+  failed_when: '"var" not in var_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_4_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.4.1
+    
+- name: "1.1.2.4.2 Ensure nodev option set on /var partition"
+  shell: |
+    findmnt --kernel /var | grep nodev
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_4_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.4.2
+    
+    
+- name: "1.1.2.4.3 Ensure nosuid option set on /var partition"
+  shell: |
+    findmnt --kernel /var | grep nosuid
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_4_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.4.3    
+
+
+- name: "1.1.2.5.1 Ensure /var/tmp is a separate partition"
+  shell: |
+    findmnt --kernel /var/tmp
+  register: var_status
+  failed_when: '"var" not in var_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_5_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.5.1    
+
+- name: "1.1.2.5.2 Ensure nodev option set on /var/tmp partition"
+  shell: |
+    findmnt --kernel /var/tmp | grep nodev
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_5_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.5.2
+
+- name: "1.1.2.5.3 Ensure nosuid option set on /var/tmp partition"
+  shell: |
+    findmnt --kernel /var/tmp | grep nosuid
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_5_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.5.3
+
+- name: "1.1.2.5.4 Ensure noexec option set on /var/tmp partition"
+  shell: |
+    findmnt --kernel /var/tmp | grep noexec
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_5_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.5.4  
+
+    
+- name: "1.1.2.6.1 Ensure /var/log is a separate partition"
+  shell: |
+    findmnt --kernel /var/log
+  register: var_status
+  failed_when: '"var" not in var_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_6_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.6.1   
+    
+- name: "1.1.2.6.2 Ensure nodev option set on /var/log partition"
+  shell: |
+    findmnt --kernel /var/log | grep nodev
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_6_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.6.2   
+
+- name: "1.1.2.6.3 Ensure nosuid option set on /var/log partition"
+  shell: |
+    findmnt --kernel /var/log | grep nosuid
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_6_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.6.3 
+
+- name: "1.1.2.6.4 Ensure noexec option set on /var/log partition"
+  shell: |
+    findmnt --kernel /var/log | grep noexec
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_6_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.6.4  
+
+
+- name: "1.1.2.7.1 Ensure /var/log/audit is a separate partition"
+  shell: |
+    findmnt --kernel /var/log/audit
+  register: var_status
+  failed_when: '"var" not in var_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_7_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.7.1  
+
+
+- name: "1.1.2.7.2 Ensure nodev option set on /var/log/audit partition"
+  shell: |
+    findmnt --kernel /var/log/audit | grep nodev
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_7_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.7.2
+
+
+- name: "1.1.2.7.3 Ensure nosuid option set on /var/log/audit partition"
+  shell: |
+    findmnt --kernel /var/log/audit | grep nosuid
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_7_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.7.3    
+
+
+- name: "1.1.2.7.4 Ensure noexec option set on /var/log/audit partition"
+  shell: |
+    grep -r gpgkey /etc/yum.repos.d/* /etc/dnf/dnf.conf
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_1_2_7_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.1.2.7.4 
+
+
+- name: "1.2.1.1 Ensure GPG keys are configured (Manual)"
+  shell: |
+    grep -r gpgkey /etc/yum.repos.d/* /etc/dnf/dnf.conf
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_2_1_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.2.1.1 
+
+- name: "1.2.1.2 Ensure gpgcheck is globally activated"
+  shell: |
+    grep -Pi '^\s*gpgcheck\s*=\s*(1|true|yes)\b' /etc/dnf/dnf.conf && \
+    grep -Pi '^\s*gpgcheck\s*=\s*(0|[2-9]|[1-9][0-9]+|false|no)\b' /etc/yum.repos.d/*
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_2_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.2.1.2 
+
+- name: "1.2.1.3 Ensure repo_gpgcheck is globally activated (Manual)"
+  shell: |
+    grep ^repo_gpgcheck /etc/dnf/dnf.conf 
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_2_1_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.2.1.3 
+
+- name: "1.2.1.4 Ensure package manager repositories are configured (Manual)"
+  shell: |
+    dnf repolist && \
+    cat /etc/yum.repos.d/*.repo
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_2_1_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.2.1.4
+
+- name: "1.2.2.1 Ensure updates, patches, and additional security software are installed (Manual)"
+  block:
+    - name: "1.2.2.1 Ensure updates, patches, and additional security software are installed"
+      shell: dnf check-update
+      register: dnf_update
+      changed_when: no
+    - name: "1.2.2.1 Ensure updates, patches, and additional security software are installed"
+      debug:
+        msg: "{{dnf_update.stdout}}"
+  ignore_errors: yes
+  when:
+    - rule_1_2_2_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.2.2.1
+
+- name: "1.3.1.1 Ensure SELinux is installed"
+  shell: |
+     rpm -q libselinux
+  register: SELinux_status
+  failed_when: '"libselinux-" not in SELinux_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+  when:
+    - rule_1_3_1_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.3.1.1    
+
+- name: "1.3.1.2 Ensure SELinux is not disabled in the bootloader configuration"
+  shell: grubby --info=ALL | grep -Po '(selinux|enforcing)=0\b' 
+  register: selinux_enabled_status
+  failed_when: selinux_enabled_status.stdout|length > 0
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_3_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.3.1.2
+    
+- name: "1.3.1.3 Ensure SELinux policy is configured"
+  block: 
+    - name: "1.3.1.3 Ensure SELinux policy is configured"
+      shell: grep -E '^\s*SELINUXTYPE=(targeted|mls)\b' /etc/selinux/config
+      register: selinux_policy
+      failed_when: '"targeted" not in selinux_policy.stdout and "mls" not in selinux_policy.stdout'
+      changed_when: no
+      
+    - name: "1.3.1.3 Ensure SELinux policy is configured"
+      shell:  sestatus | grep Loaded
+      register: sestatus
+      failed_when: '"targeted" not in sestatus.stdout and "mls" not in sestatus.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_3_1_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.3.1.3
+    
+- name: "1.3.1.4 Ensure the SELinux mode is not disabled"
+  block: 
+    - name: "1.3.1.4 Ensure the SELinux mode is not disabled | Current mode"
+      shell: getenforce
+      register: selinux_mode
+      failed_when: '"enforcing" not in selinux_mode.stdout|lower and "permissive" not in selinux_mode.stdout|lower'
+      changed_when: no
+      
+    - name: "1.3.1.4 Ensure the SELinux mode is not disabled | Configured Mode"
+      shell: grep -Ei '^\s*SELINUX=(enforcing|permissive)' /etc/selinux/config
+      register: selinux_mode_cfg
+      failed_when: '"enforcing" not in selinux_mode_cfg.stdout|lower and "permissive" not in selinux_mode_cfg.stdout|lower'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_3_1_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.3.1.4
+    
+- name: "1.3.1.5 Ensure the SELinux mode is enforcing"
+  block: 
+    - name: "1.3.1.5 Ensure the SELinux mode is enforcing | Current mode"
+      shell: getenforce
+      register: selinux_mode
+      failed_when: '"enforcing" not in selinux_mode.stdout|lower'
+      changed_when: no
+      
+    - name: "1.3.1.5 Ensure the SELinux mode is enforcing | Configured Mode"
+      shell: grep -Ei '^\s*SELINUX=(enforcing|permissive)' /etc/selinux/config
+      register: selinux_mode_cfg
+      failed_when: '"enforcing" not in selinux_mode_cfg.stdout|lower'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_3_1_5
+    - selinux_policy == "Enforcing"
+  tags:
+    - level2_workstation
+    - level2_server
+    - s1
+    - r1.3.1.5   
+    
+- name: "1.3.1.6 Ensure no unconfined services exist"
+  shell: |
+    ps -eZ | grep unconfined_service_t
+  register: unconfined_services
+  failed_when: unconfined_services.stdout|length>0
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_3_1_6
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.3.1.6    
+
+- name: "1.3.1.7 Ensure the MCS Translation Service (mcstrans) is not installed"
+  shell: |
+     rpm -q  mcstrans
+  register: mcstrans_status
+  failed_when: mcstrans_status.rc != 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_3_1_7
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.3.1.7    
+
+
+- name: "1.3.1.8 Ensure SETroubleshoot is not installed"
+  shell: |
+     rpm -q setroubleshoot
+  register: setroubleshoot_status
+  failed_when: setroubleshoot_status.rc != 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_3_1_8
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.3.1.8   
+
+- name: "1.4.1 Ensure bootloader password is set"
+  shell: awk -F. '/^\s*GRUB2_PASSWORD/ {print $1"."$2"."$3}' /boot/grub2/user.cfg
+  register: grub_pass_status
+  failed_when: '"RUB2_PASSWORD=grub.pbkdf2.sha512" not in grub_pass_status'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_4_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.4.1
+    - grub
+    
+- name: "1.4.2 | Ensure access to bootloader config is configured"
+  block: 
+    - name: "1.4.2 | Ensure permissions on bootloader config are configured | Check grub.cfg"
+      shell:  stat -Lc "%n %#a %u/%U %g/%G" /boot/grub2/grub.cfg
+      register: grub_cfg
+      failed_when:  grub_cfg.stdout is not search("0[0-7]00") or grub_cfg.stdout is not search("0\/root\s+0\/root")
+      changed_when: no
+    - name: "1.4.2 | Ensure permissions on bootloader config are configured | check grubenv"
+      shell: stat -Lc "%n %#a %u/%U %g/%G" /boot/grub2/grubenv
+      register: grubenv_status
+      failed_when: grubenv_status.stdout is not search("0[0-6]00") or grubenv_status.stdout is not search("0\/root\s+0\/root")
+      changed_when: no
+    - name: "1.4.2 | Ensure permissions on bootloader config are configured | Check user.cfg"
+      shell: stat -Lc "%n %#a %u/%U %g/%G" /boot/grub2/user.cfg
+      register: user_cfg
+      failed_when: user_cfg.stdout is not search("0[0-6]00") or user_cfg.stdout is not search("0\/root\s+0\/root")
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_4_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.4.2
+    - grub
+
+- name: "1.5.1 Ensure address space layout randomization is enabled"
+  shell:  |
+    sysctl kernel.randomize_va_space | tr -d " " | cut -d "=" -f 2
+  register: randomize_va_space
+  failed_when: randomize_va_space.stdout|int != 2
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_5_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.5.1
+
+- name: "1.5.2 Ensure ptrace_scope is restricted"
+  script: 
+    cmd: rule_1_5_2.sh
+  register: ptrace_return
+  failed_when: '"PASS" not in ptrace_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_5_2
+  tags:
+    - level1_server
+    - level2_workstation
+    - s1
+    - r1.5.2
+
+- name: "1.5.3 Ensure core dump backtraces are disabled"
+  shell:  |
+    grep -i '^\s*ProcessSizeMax\s*=\s*0' /etc/systemd/coredump.conf.d/disable-backtraces.conf
+  register: core_dump_backtraces
+  failed_when: '"processsizemax=0" not in core_dump_backtraces.stdout|lower'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_5_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.5.3
+
+- name: "1.5.4 Ensure core dump storage is disabled"
+  script: 
+    cmd: rule_1_5_4.sh
+  register: core_dump_return
+  failed_when: '"PASS" not in core_dump_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_5_4
+  tags:
+    - level1_server
+    - level2_workstation
+    - s1
+    - r1.5.4
+
+- name: "1.6.1 Ensure system wide crypto policy is not set to legacy"
+  shell: grep -Pi '^\h*LEGACY\b' /etc/crypto-policies/config
+  register: legacy_status
+  failed_when: legacy_status.stdout|length>1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_6_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r1.6.1
+    - s1
+
+- name: "1.6.2 Ensure system wide crypto policy is not set in sshd configuration"
+  shell: grep -Pi '^\s*CRYPTO_POLICY=' /etc/sysconfig/sshd /etc/ssh/sshd_config.d/*.conf
+  register: crypto_policy_status
+  failed_when: crypto_policy_status.stdout|length>1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_6_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r1.6.2
+    - s1
+
+- name: "1.6.3 Ensure system wide crypto policy disables sha1 hash and signature support"
+  block: 
+    - name: "Ensure hash and sign lines do not include the SHA1 hash"
+      shell: awk -F= '($1~/(hash|sign)/ && $2~/SHA1/ && $2!~/^\s*\-\s*([^#\n\r]+)?SHA1/){print}' /etc/crypto-policies/state/CURRENT.pol
+      register: sha1_hash_status
+      failed_when: sha1_hash_status.stdout|length>0
+      changed_when: no
+      ignore_errors: yes
+    
+    - name: "Ensure that sha1_in_certs is set to 0"
+      shell: grep -Psi -- '^\h*sha1_in_certs\h*=\h*' /etc/crypto-policies/state/CURRENT.pol
+      register: sha1_certs_status
+      failed_when: sha1_certs_status.stdout|int != 0
+      changed_when: no
+      ignore_errors: yes
+  when:
+    - rule_1_6_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r1.6.3
+    - s1
+
+- name: "1.6.4 Ensure system wide crypto policy disables macs less than 128 bits"
+  shell: grep -Pi -- '^\h*mac\h*=\h*([^#\n\r]+)?-64\b' /etc/crypto-policies/state/CURRENT.pol
+  register: mac_128bit_status
+  failed_when: mac_128bit_status.stdout|length>1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_6_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r1.6.4
+    - s1
+
+- name: "1.6.5 Ensure system wide crypto policy disables cbc for ssh"
+  script: 
+    cmd: rule_1_6_5.sh
+  register: script_return
+  failed_when: '"PASS" not in script_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_6_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s1
+    - r1.6.5
+
+- name: "1.7.1 Ensure message of the day is configured properly"
+  shell: |
+    grep -Eis "(\\\v|\\\r|\\\m|\\\s|$(grep '^ID=' /etc/os-release | cut -d= -f2)" /etc/motd
+  register: motd_status
+  failed_when: motd_status.stdout|length>1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_7_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.7.1
+    
+- name: "1.7.2 Ensure local login warning banner is configured properly"
+  shell: grep -E -i "(\\\v|\\\r|\\\m|\\\s|$(grep '^ID=' /etc/os-release | cut -d= -f2)" /etc/issue
+  register: banner_status
+  failed_when: banner_status.stdout|length>1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_7_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.7.2
+    
+- name: "1.7.3 Ensure remote login warning banner is configured properly"
+  shell: grep -E -i "(\\\v|\\\r|\\\m|\\\s|$(grep '^ID=' /etc/os-release | cut -d= -f2)" /etc/issue.net
+  register: remote_banner_status
+  failed_when: remote_banner_status.stdout|length>1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_7_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.7.3
+    
+- name: "1.7.4 Ensure permissions on /etc/motd are configured"
+  shell: stat -L /etc/motd | tr -d " "
+  register: mode
+  failed_when: >
+    not (
+      ("0644" in mode.stdout or "0600" in mode.stdout or "0640" in mode.stdout)
+    )
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_7_4
+    - use_motd
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.7.4
+    
+- name: "1.7.5 Ensure permissions on /etc/issue are configured"
+  shell: stat -L /etc/issue | tr -d " "
+  register: mode
+  failed_when: >
+    not (
+      ("0644" in mode.stdout or "0600" in mode.stdout or "0640" in mode.stdout)
+    )
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_7_5
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.7.5
+    
+- name: "1.7.6 Ensure permissions on /etc/issue.net are configured"
+  shell: stat -L /etc/issue.net | tr -d " "
+  register: mode
+  failed_when: >
+    not (
+      ("0644" in mode.stdout or "0600" in mode.stdout or "0640" in mode.stdout)
+    )
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_7_6
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.7.6
+
+- name: "1.8.1 Ensure GNOME Display Manager is removed"
+  command:  rpm -q gdm
+  register: gdm_status
+  failed_when: gdm_status.rc != 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_1
+  tags:
+    - level2_server
+    - s1
+    - r1.8.1
+
+- name: "1.8.2 Ensure GDM login banner is configured"
+  script: 
+    cmd: rule_1_8_2.sh
+  register: gdm_login_banner
+  failed_when: '"PASS" not in gdm_login_banner.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.8.2   
+
+- name: "1.8.3 Ensure GDM disable-user-list option is enabled"
+  script: 
+    cmd: rule_1_8_3.sh
+  register: gdm_disableuserlist
+  failed_when: '"PASS" not in gdm_disableuserlist.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.8.3   
+
+- name: "1.8.4 Ensure GDM screen locks when the user is idle"
+  script: 
+    cmd: rule_1_8_4.sh
+  register: gdm_idlescreenlock
+  failed_when: '"PASS" not in gdm_idlescreenlock.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_4
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.8.4
+
+- name: "1.8.5 Ensure GDM screen locks cannot be overridden"
+  script: 
+    cmd: rule_1_8_5.sh
+  register: gdm_overridescreenlock
+  failed_when: '"PASS" not in gdm_overridescreenlock.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_5
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.8.5    
+    
+- name: "1.8.6 Ensure GDM automatic mounting of removable media is disabled"
+  script: 
+    cmd: rule_1_8_6.sh
+  register: gdm_automount
+  failed_when: '"PASS" not in gdm_automount.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_6
+  tags:
+    - level2_workstation
+    - level1_server
+    - s1
+    - r1.8.6    
+
+- name: "1.8.7 Ensure GDM disabling automatic mounting of removable media is not overridden"
+  script: 
+    cmd: rule_1_8_7.sh
+  register: gdm_automount_override
+  failed_when: '"PASS" not in gdm_automount_override.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_7
+  tags:
+    - level2_workstation
+    - level1_server
+    - s1
+    - r1.8.7 
+
+- name: "1.8.8 Ensure GDM autorun-never is enabled"
+  script: 
+    cmd: rule_1_8_8.sh
+  register: gdm_automount_never
+  failed_when: '"PASS" not in gdm_automount_never.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_8
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.8.8   
+    
+- name: "1.8.9 Ensure GDM autorun-never is not overridden"
+  script: 
+    cmd: rule_1_8_9.sh
+  register: gdm_automount_never_override
+  failed_when: '"PASS" not in gdm_automount_never_override.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_9
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.8.9   
+    
+- name: "1.8.10 Ensure XDCMP is not enabled"
+  shell: grep -Eis '^\s*Enable\s*=\s*true' /etc/gdm3/custom.conf
+  register: xdcmp_status
+  failed_when: xdcmp_status.stdout|length>1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_1_8_10
+  tags:
+    - level1_workstation
+    - level1_server
+    - s1
+    - r1.8.10
+    
+
+

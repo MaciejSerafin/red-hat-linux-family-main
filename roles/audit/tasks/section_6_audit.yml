@@ -1,0 +1,1525 @@
+---
+# - name: "Get users accounts"
+#   command: "awk -F: '{print $1}' /etc/passwd"
+#   register: users
+#   changed_when: false
+#   tags:
+#     - s6
+
+
+    
+- name: "6.1.1 Ensure AIDE is installed"
+  shell: |
+    rpm -q aide
+  register: aide_status
+  failed_when: '"aide-" not in aide_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+  when:
+    - rule_6_1_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s6
+    - r6.1.1
+    - aide
+    
+- name: "6.1.2 Ensure filesystem integrity is regularly checked"
+  block:
+    - name: "6.1.2 | Ensure filesystem integrity is regularly checked | Verify a cron job scheduled to run the aide check" 
+      shell:  grep -Ers '(/usr/sbin/aide).*(--check)' /etc/cron.* /etc/crontab /var/spool/cron/*  
+      changed_when: no
+      register: cron_filesystem
+    
+    - name: "6.1.2 | Ensure filesystem integrity is regularly checked"
+      shell: systemctl is-enabled aidecheck.service
+      changed_when: no
+      when:
+        - cron_filesystem.rc != 0
+      
+    - name: "6.1.2 | Ensure filesystem integrity is regularly checked"
+      shell: systemctl is-enabled aidecheck.timer
+      changed_when: no
+      when:
+        - cron_filesystem.rc != 0
+      
+    - name: "6.1.2 | Ensure filesystem integrity is regularly checked"
+      shell: systemctl status aidecheck.timer
+      changed_when: no
+      when:
+        - cron_filesystem.rc != 0
+  ignore_errors: yes
+  when:
+    - rule_6_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s6
+    - r6.1.2
+    - aide
+    
+- name: "6.1.3 Ensure cryptographic mechanisms are used to protect the integrity of audit tools"
+  script: 
+    cmd: rule_6_1_3.sh
+  register: script_return
+  failed_when: '"PASS" not in script_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_1_3
+  tags:
+    - level1_server
+    - level2_workstation
+    - s6
+    - r6.1.3
+    
+
+- name: "6.2.1.1 Ensure journald service is enabled and active"
+  block:
+    - name: "6.2.1.1 Ensure journald service is enabled"
+      shell: systemctl is-enabled systemd-journald.service
+      register: journald_status
+      failed_when: journald_status.stdout != 'enabled'
+      ignore_errors: yes
+      changed_when: no
+
+    - name: "6.2.1.1 Ensure journald service is active"
+      shell: systemctl is-active systemd-journald.service
+      register: journald_status
+      failed_when: journald_status.stdout != 'active'
+      ignore_errors: yes
+      changed_when: no
+
+  when:
+    - rule_6_2_1_1
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.1.1
+    - level1_server
+    - level1_workstation
+
+
+- name: "6.2.1.2 Ensure journald log file access is configured"
+  script:
+    cmd: rule_6_2_1_2.sh
+  register: script_return
+  failed_when: '"PASS" not in script_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s6
+    - r6.2.1.2
+
+- name: "6.2.1.3 Ensure journald log rotation is configured per site policy"
+  shell: grep "{{item.regex}}" /etc/systemd/journald.conf
+  register: journald_rotation_status
+  failed_when: '"{{item.line}}" not in journald_rotation_status.stdout'
+  with_items:
+    - { regex: '^SystemMaxUse=', line: 'SystemMaxUse={{journald_SystemMaxUse}}' }
+    - { regex: '^SystemKeepFree=', line: 'SystemKeepFree={{journald_SystemKeepFree}}' }
+    - { regex: '^RuntimeMaxUse=', line: 'RuntimeMaxUse={{journald_RuntimeMaxUse}}' }
+    - { regex: '^RuntimeKeepFree=', line: 'RuntimeKeepFree={{journald_RuntimeKeepFree}}' }
+    - { regex: '^MaxFileSec=', line: 'MaxFileSec={{journald_MaxFileSec}}' }
+  ignore_errors: yes
+  changed_when: no
+  when:
+    - rule_6_2_1_3
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.1.3
+    - level1_server
+    - level1_workstation
+
+- name: "6.2.1.4 Ensure only one logging system is in use"
+  script:
+    cmd: rule_6_2_1_4.sh
+  register: script_return
+  failed_when: '"PASS" not in script_return.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_1_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s6
+    - r6.2.1.4
+
+
+- name: "6.2.2.1.1 Ensure systemd-journal-remote is installed"
+  shell: |
+     rpm -q systemd-journal-remote  
+  register: journald_status
+  failed_when: '"systemd-journal-remote-" not in journald_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_2_1_1
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.1.1
+    - level1_server
+    - level1_workstation
+    
+- name: "6.2.2.1.2 Ensure systemd-journal-upload authentication is configured"
+  shell:  grep -P "^ *URL=|^ *ServerKeyFile=|^ *ServerCertificateFile=|^ *TrustedCertificateFile=" /etc/systemd/journal-upload.conf
+  register: journald_auth_status
+  failed_when: "'URL=' not in journald_auth_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_2_1_2
+    - logging_module == 'journald'
+  tags:
+    - level1_server
+    - level1_workstation
+    - r6.2.2.1.2 
+    - s6
+
+
+- name: "6.2.2.1.3 Ensure systemd-journal-upload is enabled and active"
+  block:
+    - name: "6.2.2.1.3 Ensure systemd-journal-upload is enabled"
+      shell: systemctl is-enabled systemd-journal-upload.service
+      register: journald_enabled_status
+      failed_when: '"enabled" not in journald_enabled_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "6.2.2.1.3 Ensure systemd-journal-upload is active"
+      shell: systemctl is-active systemd-journal-upload.service
+      register: journald_active_status
+      failed_when: '"active" not in journald_active_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_6_2_2_1_3
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.1.3
+    - level1_server
+    - level1_workstation
+
+- name: "6.2.2.2 Ensure journald ForwardToSyslog is disabled"
+  shell: systemd-analyze cat-config systemd/journald.conf systemd/journald.conf.d/* | grep -E "^ForwardToSyslog=no"
+  register: ForwardToSyslog_status
+  failed_when: '"ForwardToSyslog=no" not in ForwardToSyslog_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_2_2
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.2
+    - level1_server
+    - level1_workstation
+
+
+- name: "6.2.2.3 Ensure journald Compress is configured"
+  shell: systemd-analyze cat-config systemd/journald.conf systemd/journald.conf.d/* | grep -E "^Compress=yes"
+  register: Compress_status
+  failed_when: '"Compress=yes" not in Compress_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_2_3
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.3
+    - level1_server
+    - level1_workstation
+
+
+- name: "6.2.2.4 Ensure journald Storage is configured"
+  shell: systemd-analyze cat-config systemd/journald.conf systemd/journald.conf.d/* | grep -E "^Storage=persistent"
+  register: Storage_status
+  failed_when: '"Storage=persistent" not in Storage_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_2_4
+    - logging_module == 'journald'
+  tags:
+    - s6
+    - r6.2.2.4
+    - level1_server
+    - level1_workstation
+
+    
+- name: "6.2.3.1 Ensure rsyslog is installed"
+  shell: |
+    rpm -q rsyslog  
+  register: rsyslog_status
+  failed_when: '"rsyslog-" not in rsyslog_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_3_1
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.1
+    - level1_server
+    - level1_workstation
+    - rsyslog
+    
+
+- name: "6.2.3.2 Ensure rsyslog service is enabled and active"
+  block:
+    - name: 6.2.3.2 Ensure rsyslog service is enabled 
+      shell: systemctl is-enabled rsyslog
+      register: rsyslog_status
+      failed_when: '"enabled" not in rsyslog_status.stdout'
+      ignore_errors: yes
+      changed_when: no
+    
+    - name: 6.2.3.2 Ensure rsyslog service is active 
+      shell: systemctl is-active rsyslog
+      register: rsyslog_status
+      failed_when: '"active" not in rsyslog_status.stdout'
+      ignore_errors: yes
+      changed_when: no
+  when:
+    - rule_6_2_3_2
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.2
+    - level1_server
+    - level1_workstation
+    - rsyslog
+
+
+
+    
+- name: "6.2.3.3 Ensure journald is configured to send logs to rsyslog"
+  shell: systemd-analyze cat-config systemd/journald.conf systemd/journald.conf.d/* | grep -E "^ForwardToSyslog=yes"
+  register: journald_rsyslog_status
+  failed_when: '"ForwardToSyslog=yes" not in journald_rsyslog_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+  
+  when:
+    - rule_6_2_3_3
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.3
+    - level1_server
+    - level1_workstation
+    - rsyslog
+    
+- name: "6.2.3.4 Ensure rsyslog log file creation mode is configured"
+  shell: grep -Ps '^\h*\$FileCreateMode\h+0[0,2,4,6][0,2,4]0\b' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+  register: rsyslog_default_status
+  failed_when: '"$FileCreateMode 0640" not in rsyslog_default_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+  
+  when:
+    - rule_6_2_3_4
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.4
+    - level1_server
+    - level1_workstation
+    - rsyslog
+    
+- name: "6.2.3.6 Ensure rsyslog is configured to send logs to a remote log host"
+  block:
+    - name: "6.2.3.6 | Ensure rsyslog is configured to send logs to a remote log host| Old format"
+      shell: grep "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+      register: remote_host_status
+      failed_when: rsyslog_target|string not in remote_host_status.stdout
+      changed_when: no
+    
+    - name: "6.2.3.6 | Ensure rsyslog is configured to send logs to a remote log host| New format"
+      shell:  grep -E '^\s*([^#]+\s+)?action\(([^#]+\s+)?\btarget=\"?[^#"]+\"?\b' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+      register: remote_host_status
+      failed_when: rsyslog_target|string not in remote_host_status.stdout
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_2_3_6
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.6
+    - level1_server
+    - level1_workstation
+    - rsyslog
+    
+- name: "6.2.3.7 Ensure rsyslog is not configured to receive logs from a remote client"
+  shell: "{{item}}"
+  register: rsyslog_remote_status
+  failed_when: rsyslog_remote_status.stdout | length > 1
+  changed_when: no
+  ignore_errors: yes
+  with_items:
+    - grep '$ModLoad imtcp' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+    - grep '$InputTCPServerRun' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+    - grep -P -- '^\h*module\(load="imtcp"\)' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+    - grep -P -- '^\h*input\(type="imtcp" port="514"\)' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+  when:
+    - rule_6_2_3_7
+    - logging_module == 'rsyslog'
+  tags:
+    - s6
+    - r6.2.3.7
+    - level1_server
+    - level1_workstation
+    - rsyslog 
+
+
+- name: "6.2.3.8 Ensure rsyslog logrotate is configured"
+  script:
+    cmd: rule_6_2_3_8.sh
+  register: rsyslog_logrotate_status
+  failed_when: '"Pass" not in rsyslog_logrotate_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+   
+  when:
+    - rule_6_2_3_8
+    - logging_module == 'rsyslog'
+  tags:
+    - level1_server
+    - level1_workstation
+    - s6
+    - r6.2.3.8
+    - rsyslog
+
+
+- name: "6.2.4.1 Ensure access to all logfiles has been configured"
+  script:
+    cmd: rule_6_2_4_1.sh
+  register: all_logfiles_status
+  failed_when: '"Pass" not in all_logfiles_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_6_2_4_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s6
+    - r6.2.4.1
+
+
+- name: "6.3.1.1 Ensure auditd packages are installed"
+  shell: |
+    rpm -q audit audit-libs 
+  register: auditd_status
+  failed_when: '"audit-" not in auditd_status.stdout or "audit-libs-" not in auditd_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_1_1
+  tags:
+    - s6
+    - r6.3.1.1
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.1.2 Ensure auditing for processes that start prior to auditd is enabled"
+  shell: |
+    grubby --info=ALL | grep -Po '\baudit=1\b'
+  register: auditd_prior
+  failed_when: '"audit=1" not in auditd_prior.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_1_2
+  tags:
+    - s6
+    - r6.3.1.2
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.1.3 Ensure audit_backlog_limit is sufficient"
+  shell: |
+     grubby --info=ALL | grep -Po "\baudit_backlog_limit=\d+\b" | sort -u | grep -oP "\d+"
+  register: auditd_backlog_limit
+  failed_when: auditd_backlog_limit.stdout | int < 8192
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_1_3
+
+
+  tags:
+    - s6
+    - r6.3.1.3
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.1.4 Ensure auditd service is enabled and active"
+  block:
+    - name: "6.3.1.4 Ensure auditd service is enabled"
+      shell: systemctl is-enabled auditd | grep '^enabled'
+      register: auditd_enabled_status
+      failed_when: '"enabled" not in auditd_enabled_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "6.3.1.4 Ensure auditd service is active"
+      shell: systemctl is-active auditd | grep '^active'
+      register: auditd_active_status
+      failed_when: '"active" not in auditd_active_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_6_3_1_4
+  tags:
+    - s6
+    - r6.3.1.4
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.2.1 Ensure audit log storage size is configured"
+  shell: |
+    grep -Po -- '^\h*max_log_file\h*=\h*\d+\b' /etc/audit/auditd.conf
+  register: log_storage_size
+  failed_when: log_storage_size.stdout|int < 0
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_2_1
+  tags:
+    - s6
+    - r6.3.2.1
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.2.2 Ensure audit logs are not automatically deleted"
+  shell: |
+     grep max_log_file_action /etc/audit/auditd.conf
+  register: log_keep
+  failed_when: '"keep_logs" not in log_keep.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_2_2
+  tags:
+    - s6
+    - r6.3.2.2
+    - level2_server
+    - level2_workstation
+  
+
+- name: "6.3.2.3 Ensure system is disabled when audit logs are full"
+  block: 
+    - name: "6.3.2.3 Ensure system is disabled when audit logs are full"
+      shell: |
+        grep -P -- '^\h*disk_full_action\h*=\h*(halt|single)\b' /etc/audit/auditd.conf
+      register: disk_full_action_status
+      failed_when: '"disk_full_action = halt" not in disk_full_action_status.stdout or "disk_full_action = single" not in disk_full_action_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+    - name: "6.3.2.3 Ensure system is disabled when audit logs are full"
+      shell: |
+        grep -P -- '^\h*disk_error_action\h*=\h*(syslog|single|halt)\b' /etc/audit/auditd.conf
+      register: disk_error_action_status
+      failed_when: '"disk_error_action = syslog" not in disk_error_action_status.stdout or "disk_error_action = single" not in disk_error_action_status.stdout or "disk_error_action = halt" not in disk_error_action_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_6_3_2_3
+  tags:
+    - level2_server
+    - level2_workstation
+    - r6.3.2.3
+    - s6
+  
+- name: "6.3.2.4 Ensure system warns when audit logs are low on space"
+  block: 
+    - name: "6.3.2.4 Ensure system warns when audit logs are low on space"
+      shell: |
+        grep -P -- '^\h*space_left_action\h*=\h*(email|exec|single|halt)\b' /etc/audit/auditd.conf
+      register: space_left_action_status
+      failed_when: '"space_left_action = email" not in space_left_action_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+    - name: "6.3.2.4 Ensure system warns when audit logs are low on space"
+      shell: |
+        grep -P -- '^\h*admin_space_left_action\h*=\h*(single|halt)\b' /etc/audit/auditd.conf
+      register: admin_space_left_action_status
+      failed_when: '"admin_space_left_action = single" not in admin_space_left_action_status.stdout'
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_6_3_2_4
+  tags:
+    - level2_server
+    - level2_workstation
+    - r6.3.2.4
+    - s6
+
+
+- name: "6.3.3.1 Ensure changes to system administration scope (sudoers) is collected"
+  shell: |
+    awk '/^ *-w/ \
+    &&/\/etc\/sudoers/ \
+    &&/ +-p *wa/ \
+    &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+  register: scope_collected
+  failed_when: '"-w /etc/sudoers -p wa -k scope" not in scope_collected.stdout or "-w /etc/sudoers.d -p wa -k scope" not in scope_collected.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_1
+  tags:
+    - s6
+    - r6.3.3.1
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.2 Ensure actions as another user are always logged"
+  block:
+    - name: "6.3.3.2 Ensure actions as another user are always logged | on disk rules"
+      shell: |
+        awk '/^ *-a *always,exit/ &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/)&&(/ -C *euid!=uid/||/ -C *uid!=euid/) && / -S *execve/&&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+      register: anotherUserLog_disk
+      failed_when: '"arch=b64" not in anotherUserLog_disk.stdout or "arch=b32" not in anotherUserLog_disk.stdout or anotherUserLog_disk.rc != 0'
+      changed_when: no
+    - name: "6.3.3.2 Ensure actions as another user are always logged | running cobf"
+      shell: |
+        auditctl -l | awk '/^ *-a *always,exit/ &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/)&&(/ -C *euid!=uid/||/ -C *uid!=euid/) && / -S *execve/&&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+      register: anotherUserLog_run
+      failed_when: '"arch=b64" not in anotherUserLog_run.stdout or "arch=b32" not in anotherUserLog_run.stdout or anotherUserLog_disk.rc != 0'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_2
+  tags:
+    - s6
+    - r6.3.3.2
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.3 Ensure events that modify the sudo log file are collected"
+  shell: |
+    {
+      awk "/^ *-w/ \
+      &&/var/ \
+      &&/ +-p *wa/ \
+      &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+      || printf "ERROR: Variable 'SUDO_LOG_FILE' is unset.\n"
+    }
+  register: sudologfile_collected
+  failed_when: '"-w {{sudo_log_file}} -p wa -k sudo_log_file" not in sudologfile_collected.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_3
+  tags:
+    - s6
+    - r6.3.3.3
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.4 Ensure events that modify date and time information are collected"
+  block:
+    - name: "6.3.3.4 Ensure events that modify date and time information are collected | on disk rules"
+      shell: |
+         {
+            awk '/^ *-a *always,exit/ \
+            &&/ -F *arch=b[2346]{2}/ \
+            &&/ -S/ \
+            &&(/adjtimex/ \
+             ||/settimeofday/ \
+             ||/clock_settime/ ) \
+            &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+            awk '/^ *-w/ \
+            &&/\/etc\/localtime/ \
+            &&/ +-p *wa/ \
+            &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+         }
+      register: datetime_collected
+      failed_when: '"-a always,exit -F arch=b32 -S adjtimex,settimeofday,clock_settime -k time-change" not in datetime_collected.stdout and "-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change" not in datetime_collected.stdout and "-w /etc/localtime -p wa -k time-change" not in datetime_collected.stdout'
+      changed_when: no
+    - name: "6.3.3.4 Ensure events that modify date and time information are collected | running conf"
+      shell: |
+        {
+            auditctl -l | awk '/^ *-a *always,exit/ \
+            &&/ -F *arch=b[2346]{2}/ \
+            &&/ -S/ \
+            &&(/adjtimex/ \
+            ||/settimeofday/ \
+            ||/clock_settime/ ) \
+            &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+            auditctl -l | awk '/^ *-w/ \
+            &&/\/etc\/localtime/ \
+            &&/ +-p *wa/ \
+            &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+        }
+      register: datetime_collected_run
+      failed_when: '"-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change" not in datetime_collected_run.stdout and "-a always,exit -F arch=b32 -S adjtimex,settimeofday,clock_settime -k time-change" not in datetime_collected_run.stdout and "-w /etc/localtime -p wa -k time-change" not in datetime_collected_run.stdout'
+      changed_when: no
+      
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_4
+  tags:
+    - s6
+    - r6.3.3.4
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.5 Ensure events that modify the system's network environment are collected"
+  block:
+    - name: "6.3.3.5 | Ensure events that modify the system's network environment are collected | Check the on disk rules"
+      shell: |
+        {
+          awk '/^ *-a *always,exit/ \
+          &&/ -F *arch=b(32|64)/ \
+          &&/ -S/ \
+          &&(/sethostname/ \
+          ||/setdomainname/) \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+          awk '/^ *-w/ \
+          &&(/\/etc\/issue/ \
+          ||/\/etc\/issue.net/ \
+          ||/\/etc\/hosts/ \
+          ||/\/etc\/network/) \
+          &&/ +-p *wa/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+        }
+      changed_when: no
+      register: network_env_collect_status
+      failed_when: >
+        network_env_collect_status.stdout is not search("-a always,exit.*b64.*sethostname.*setdomainname.*system-locale") or
+        network_env_collect_status.stdout is not search("-a always,exit.*b32.*sethostname.*setdomainname.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/issue\s.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/issue\.net\s.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/hosts\s.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/network[^s].*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/networks.*system-locale")
+        
+    - name: "6.3.3.5 | Ensure events that modify the system's network environment are collected | Check the loaded rules"
+      shell: |
+        {
+          auditctl -l | awk '/^ *-a *always,exit/ \
+          &&/ -F *arch=b(32|64)/ \
+          &&/ -S/ \
+          &&(/sethostname/ \
+          ||/setdomainname/) \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+          auditctl -l | awk '/^ *-w/ \
+          &&(/\/etc\/issue/ \
+          ||/\/etc\/issue.net/ \
+          ||/\/etc\/hosts/ \
+          ||/\/etc\/network/) \
+          &&/ +-p *wa/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+        }
+      changed_when: no
+      register: network_env_collect_status
+      failed_when: >
+        network_env_collect_status.stdout is not search("-a always,exit.*b64.*sethostname.*setdomainname.*system-locale") or
+        network_env_collect_status.stdout is not search("-a always,exit.*b32.*sethostname.*setdomainname.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/issue\s.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/issue\.net\s.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/hosts\s.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/network\s.*system-locale") or
+        network_env_collect_status.stdout is not search("-w.*\/etc\/networks.*system-locale")
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_5
+  tags:
+    - s6
+    - r6.3.3.5
+    - level2_server
+    - level2_workstation
+    
+
+- name: "6.3.3.6 | Ensure use of privileged commands is collected"
+  shell: |
+    for PARTITION in $(findmnt -n -l -k -it $(awk '/nodev/ { print $2 }' /proc/filesystems | paste -sd,) | grep -Pv "noexec|nosuid" | awk '{print $1}'); do
+      for PRIVILEGED in $(find "${PARTITION}" -xdev -perm /6000 -type f); do
+        grep -qr "${PRIVILEGED}" /etc/audit/rules.d && printf "OK: '${PRIVILEGED}' found in auditing rules.\n" || printf "Warning: '${PRIVILEGED}' not found in on disk configuration.\n"
+      done
+    done
+  register: priv_procs
+  failed_when: '"Warning" in priv_procs.stdout'
+  changed_when: no
+  ignore_errors: yes  
+  when:
+    - rule_6_3_3_6
+  tags:
+    - s6
+    - r6.3.3.6
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.3.7 Ensure unsuccessful file access attempts are collected"
+  block:
+    - name: "6.3.3.7 Ensure unsuccessful file access attempts are collected | check the on disk rule"
+      shell:  |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&(/ -F *exit=-EACCES/||/ -F *exit=-EPERM/) \
+          &&/ -S/ \
+          &&/creat/ \
+          &&/open/ \
+          &&/truncate/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: unauthorized_access_collect_status
+      failed_when: unauthorized_access_collect_status.stdout_lines|length < 4
+      changed_when: no
+      
+    - name: "6.3.3.7 Ensure unsuccessful file access attempts are collected | Check loaded rules"
+      shell:  |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&(/ -F *exit=-EACCES/||/ -F *exit=-EPERM/) \
+          &&/ -S/ \
+          &&/creat/ \
+          &&/open/ \
+          &&/truncate/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: unauthorized_access_collect_status
+      failed_when: unauthorized_access_collect_status.stdout_lines |length < 4
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_7
+  tags:
+    - s6
+    - r6.3.3.7
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.8 | Ensure events that modify user/group information are collected "
+  block:
+    - name: "6.3.3.8 | Ensure events that modify user/group information are collected | Check the on disk rules"
+      shell: |
+        awk '/^ *-w/ \
+        &&(/\/etc\/group/ \
+          ||/\/etc\/passwd/ \
+          ||/\/etc\/gshadow/ \
+          ||/\/etc\/shadow/ \
+          ||/\/etc\/security\/opasswd/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+      register:  modify_info_collect_status
+      failed_when: >
+        "-w /etc/group -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/passwd -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/gshadow -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/shadow -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/security/opasswd -p wa -k identity" not in modify_info_collect_status.stdout 
+      changed_when: no
+      
+    - name: "6.3.3.8 | Ensure events that modify user/group information are collected | Check loaded rules"
+      shell: |
+        auditctl -l | awk '/^ *-w/ \
+        &&(/\/etc\/group/ \
+          ||/\/etc\/passwd/ \
+          ||/\/etc\/gshadow/ \
+          ||/\/etc\/shadow/ \
+          ||/\/etc\/security\/opasswd/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+      register:  modify_info_collect_status
+      failed_when: >
+        "-w /etc/group -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/passwd -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/gshadow -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/shadow -p wa -k identity" not in modify_info_collect_status.stdout or
+        "-w /etc/security/opasswd -p wa -k identity" not in modify_info_collect_status.stdout 
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_8
+  tags:
+    - s6
+    - r6.3.3.8
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.9 | Ensure discretionary access control permission modification events are collected "
+  block: 
+    - name: "6.3.3.9 | Ensure discretionary access control permission modification events are collected | Check on disk rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -S/ \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&(/chmod/||/fchmod/||/fchmodat/ \
+            ||/chown/||/fchown/||/fchownat/||/lchown/ \
+            ||/setxattr/||/lsetxattr/||/fsetxattr/ \
+            ||/removexattr/||/lremovexattr/||/fremovexattr/) \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: ac_permission_mod_status
+      failed_when: >
+        "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b64 -S chown,fchown,lchown,fchownat -F auid>=1000 -F auid!=unset -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b32 -S lchown,fchown,chown,fchownat -F auid>=1000 -F auid!=unset -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b64 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid>=1000 -F auid!=unset -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b32 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid>=1000 -F auid!=unset -F key=perm_mod" not in ac_permission_mod_status.stdout
+      changed_when: no
+      
+    - name: "6.3.3.9 | Ensure discretionary access control permission modification events are collected | Check loaded rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -S/ \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&(/chmod/||/fchmod/||/fchmodat/ \
+            ||/chown/||/fchown/||/fchownat/||/lchown/ \
+            ||/setxattr/||/lsetxattr/||/fsetxattr/ \
+            ||/removexattr/||/lremovexattr/||/fremovexattr/) \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: ac_permission_mod_status
+      failed_when: >
+        "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b64 -S chown,fchown,lchown,fchownat -F auid>=1000 -F auid!=-1 -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b32 -S lchown,fchown,chown,fchownat -F auid>=1000 -F auid!=-1 -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b64 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid>=1000 -F auid!=-1 -F key=perm_mod" not in ac_permission_mod_status.stdout or
+        "-a always,exit -F arch=b32 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid>=1000 -F auid!=-1 -F key=perm_mod" not in ac_permission_mod_status.stdout
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_9
+  tags:
+    - s6
+    - r6.3.3.9
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.10 | Ensure successful file system mounts are collected "
+  block:
+    - name: "6.3.3.10 | Ensure successful file system mounts are collected | Check on disk rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -S/ \
+          &&/mount/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      changed_when: no
+      register: mount_collect_status
+      failed_when: >
+        "-a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=unset -k mounts" not in mount_collect_status.stdout or
+        "-a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=unset -k mounts" not in mount_collect_status.stdout
+        
+    - name: "6.3.3.10 | Ensure successful file system mounts are collected | Check loaded rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -S/ \
+          &&/mount/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      changed_when: no
+      register: mount_collect_status
+      failed_when: >
+        "-a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=-1 -F key=mounts" not in mount_collect_status.stdout or
+        "-a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=-1 -F key=mounts" not in mount_collect_status.stdout
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_10
+  tags:
+    - s6
+    - r6.3.3.10
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.11 | Ensure session initiation information is collected "
+  block:
+    - name: "6.3.3.11 | Ensure session initiation information is collected | Check on disk rules"
+      shell: |
+        awk '/^ *-w/ \
+        &&(/\/var\/run\/utmp/ \
+          ||/\/var\/log\/wtmp/ \
+          ||/\/var\/log\/btmp/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+      register: init_collect_status
+      failed_when: >
+        "-w /var/run/utmp -p wa -k session" not in init_collect_status.stdout or
+        "-w /var/log/wtmp -p wa -k session" not in init_collect_status.stdout or
+        "-w /var/log/btmp -p wa -k session" not in init_collect_status.stdout
+      changed_when: no
+      
+    - name: "6.3.3.11 | Ensure session initiation information is collected | Check loaded rules"
+      shell: |
+        auditctl -l | awk '/^ *-w/ \
+        &&(/\/var\/run\/utmp/ \
+          ||/\/var\/log\/wtmp/ \
+          ||/\/var\/log\/btmp/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+      register: init_collect_status
+      failed_when: >
+        "-w /var/run/utmp -p wa -k session" not in init_collect_status.stdout or
+        "-w /var/log/wtmp -p wa -k session" not in init_collect_status.stdout or
+        "-w /var/log/btmp -p wa -k session" not in init_collect_status.stdout
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_11
+  tags:
+    - s6
+    - r6.3.3.11
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.12 | Ensure login and logout events are collected "
+  block:
+    - name: "6.3.3.12 | Ensure login and logout events are collected | Check on disk rules"
+      shell: |
+        awk '/^ *-w/ \
+        &&(/\/var\/log\/lastlog/ \
+          ||/\/var\/run\/faillock/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+      register: logout_events_status
+      failed_when: '"-w /var/log/lastlog -p wa -k logins" not in logout_events_status.stdout or "-w /var/run/faillock -p wa -k logins" not in logout_events_status.stdout'
+      changed_when: no
+      
+    - name: "6.3.3.12 | Ensure login and logout events are collected | Check loaded rules"
+      shell: |
+        auditctl -l | awk '/^ *-w/ \
+        &&(/\/var\/log\/lastlog/ \
+          ||/\/var\/run\/faillock/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+      register: logout_events_status
+      failed_when: '"-w /var/log/lastlog -p wa -k logins" not in logout_events_status.stdout or "-w /var/run/faillock -p wa -k logins" not in logout_events_status.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_12
+  tags:
+    - s6
+    - r6.3.3.12
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.13 | Ensure file deletion events by users are collected "
+  block:
+    - name: "6.3.3.13 | Ensure file deletion events by users are collected | Check on disk rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -S/ \
+          &&(/unlink/||/rename/||/unlinkat/||/renameat/) \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: file_deletion_status
+      failed_when: file_deletion_status.stdout_lines|length < 2
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_13
+  tags:
+    - s6
+    - r6.3.3.13
+    - level2_server
+    - level2_workstation
+
+
+- name: "6.3.3.14 | Ensure events that modify the system's Mandatory Access Controls are collected "
+  block:
+    - name: "6.3.3.14 | Ensure events that modify the system's Mandatory Access Controls are collected | Check on disk rules"
+      shell: |
+        awk '/^ *-w/ \
+        &&(/\/etc\/selinux/ \
+        ||/\/usr\/share\/selinux/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+      register: mac_collect_status
+      failed_when: mac_collect_status.stdout_lines|length < 2
+      changed_when: no
+      
+    - name: "6.3.3.14 | Ensure events that modify the system's Mandatory Access Controls are collected | Check on disk rules"
+      shell: |
+        auditctl -l | awk '/^ *-w/ \
+        &&(/\/etc\/selinux/ \
+        ||/\/usr\/share\/selinux/) \
+        &&/ +-p *wa/ \
+        &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+      register: mac_collect_status
+      failed_when: mac_collect_status.stdout_lines|length < 2
+      changed_when: no
+  ignore_errors: yes    
+  when:
+    - rule_6_3_3_14
+  tags:
+    - s6
+    - r6.3.3.14
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.3.15 |  Ensure successful and unsuccessful attempts to use the chcon command are recorded "
+  block:
+    - name: "6.3.3.15 |  Ensure successful and unsuccessful attempts to use the chcon command are recorded | Check on disk rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/chcon/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: chcon_access_status
+      failed_when: '"-a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng" not in chcon_access_status.stdout'
+      changed_when: no
+      
+    - name: "6.3.3.15 |  Ensure successful and unsuccessful attempts to use the chcon command are recorded | Check loaded rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/chcon/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: chcon_access_status
+      failed_when: '"-a always,exit -S all -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=-1 -F key=perm_chng" not in chcon_access_status.stdout'
+      changed_when: no
+  ignore_errors: yes    
+  when:
+    - rule_6_3_3_15
+  tags:
+    - s6
+    - r6.3.3.15
+    - level2_server
+    - level2_workstation
+    
+- name: "6.3.3.16 |  Ensure successful and unsuccessful attempts to use the setfacl command are recorded "
+  block:
+    - name: "6.3.3.16 |  Ensure successful and unsuccessful attempts to use the setfacl command are recorded | Check on disk rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/setfacl/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: setfacl_access_status
+      failed_when: '"-a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng" not in setfacl_access_status.stdout'
+      changed_when: no
+      
+    - name: "6.3.3.16 |  Ensure successful and unsuccessful attempts to use the setfacl command are recorded | Check loaded rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/setfacl/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: setfacl_access_status
+      failed_when: '"-a always,exit -S all -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=-1 -F key=perm_chng" not in setfacl_access_status.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_16
+  tags:
+    - s6
+    - r6.3.3.16
+    - level2_server
+    - level2_workstation   
+
+
+- name: "6.3.3.17 |  Ensure successful and unsuccessful attempts to use the chacl command are recorded "
+  block:
+    - name: "6.3.3.17 |  Ensure successful and unsuccessful attempts to use the chacl command are recorded | Check on disk rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/chacl/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: chacl_access_status
+      failed_when: '"ERROR"  in chacl_access_status.stdout or chacl_access_status.rc != 0'
+      changed_when: no
+      
+    - name: "6.3.3.17 |  Ensure successful and unsuccessful attempts to use the chacl command are recorded | Check loaded rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/chacl/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      changed_when: no
+      register: chacl_access_status
+      failed_when: '"ERROR"  in chacl_access_status.stdout or chacl_access_status.rc != 0'
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_17
+  tags:
+    - s6
+    - r6.3.3.17
+    - level2_server
+    - level2_workstation 
+
+- name: "6.3.3.18 |  Ensure successful and unsuccessful attempts to use the usermod command are recorded "
+  block:
+    - name: "6.3.3.18 |  Ensure successful and unsuccessful attempts to use the usermod command are recorded | Check on disk rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/sbin\/usermod/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: usermod_access_status
+      failed_when: '"-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k usermod" not in usermod_access_status.stdout'
+      changed_when: no
+      
+    - name: "6.3.3.18 |  Ensure successful and unsuccessful attempts to use the usermod command are recorded | Check loaded rules"
+      shell: |
+        {
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/sbin\/usermod/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: usermod_access_status
+      failed_when: '"-a always,exit -S all -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=-1 -F key=usermod" not in usermod_access_status.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_18
+  tags:
+    - s6
+    - r6.3.3.18
+    - level2_server
+    - level2_workstation 
+    
+    
+- name: "6.3.3.19 | Ensure kernel module loading and unloading is collected "
+  block:
+    - name: "6.3.3.19 | Ensure kernel module loading and unloading is collected | Check on disk rules"
+      shell: |
+        {
+          awk '/^ *-a *always,exit/ \
+          &&(/ -F auid!=unset/||/ -F auid!=-1/||/ -F auid!=4294967295/) \
+          &&/ -S/ \
+          &&(/init_module/ \
+            ||/finit_module/ \
+            ||/delete_module/ \
+            ||/create_module/ \
+            ||/query_module/) \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)' /etc/audit/rules.d/*.rules
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/kmod/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" /etc/audit/rules.d/*.rules \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: kernel_status
+      failed_when: >
+        "-a always,exit -F arch=b64 -S init_module,finit_module,delete_module,create_module,query_module -F auid>=1000 -F auid!=unset -k kernel_modules" not in kernel_status.stdout or
+        "-a always,exit -F path=/usr/bin/kmod -F perm=x -F auid>=1000 -F auid!=unset -k kernel_modules" not in kernel_status.stdout
+      changed_when: no
+      
+    - name: "6.3.3.19 | Ensure kernel module loading and unloading is collected | Check loaded rules"
+      shell: |
+        {
+          auditctl -l | awk '/^ *-a *always,exit/ \
+          &&(/ -F auid!=unset/||/ -F auid!=-1/||/ -F auid!=4294967295/) \
+          &&/ -S/ \
+          &&(/init_module/ \
+            ||/finit_module/ \
+            ||/delete_module/ \
+            ||/create_module/ \
+            ||/query_module/) \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)'
+          UID_MIN=$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)
+          [ -n "${UID_MIN}" ] && auditctl -l | awk "/^ *-a *always,exit/ \
+          &&(/ -F *auid!=unset/||/ -F *auid!=-1/||/ -F *auid!=4294967295/) \
+          &&/ -F *auid>=${UID_MIN}/ \
+          &&/ -F *perm=x/ \
+          &&/ -F *path=\/usr\/bin\/kmod/ \
+          &&(/ key= *[!-~]* *$/||/ -k *[!-~]* *$/)" \
+          || printf "ERROR: Variable 'UID_MIN' is unset.\n"
+        }
+      register: kernel_status
+      failed_when: >
+        "-a always,exit -F arch=b64 -S create_module,init_module,delete_module,query_module,finit_module -F auid>=1000 -F auid!=-1 -F key=kernel_modules" not in kernel_status.stdout or
+        "-a always,exit -S all -F path=/usr/bin/kmod -F perm=x -F auid>=1000 -F auid!=-1 -F key=kernel_modules" not in kernel_status.stdout
+      changed_when: no
+      
+    - name: "6.3.3.19 | Ensure kernel module loading and unloading is collected | Audit if the symlinks that kmod accepts is indeed pointing at it"
+      shell: |
+        S_LINKS=$(ls -l /usr/sbin/lsmod /usr/sbin/rmmod /usr/sbin/insmod /usr/sbin/modinfo /usr/sbin/modprobe /usr/sbin/depmod | grep -v " -> ../bin/kmod" || true) \
+        && if [[ "${S_LINKS}" != "" ]]; then printf "Issue with symlinks: ${S_LINKS}\n"; else printf "OK\n"; fi
+      register: kmod_status
+      failed_when: '"OK" not in kmod_status.stdout'
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_3_19
+  tags:
+    - s6
+    - r6.3.3.19
+    - level2_server
+    - level2_workstation
+
+
+- name: "6.3.3.20 | Ensure the audit configuration is immutable "
+  shell: grep -Ph -- '^\h*-e\h+2\b' /etc/audit/rules.d/*.rules | tail -1
+  register: audit_immutable_status
+  failed_when: '"-e 2" not in audit_immutable_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+  when:
+    - rule_6_3_3_20
+  tags:
+    - s6
+    - r6.3.3.20
+    - level2_server
+    - level2_workstation
+
+- name: "6.3.3.21 | Ensure the running and on disk configuration is the same"
+  command: augenrules --check
+  register: augenrules_status
+  failed_when: '"No change" not in augenrules_status.stdout'
+  ignore_errors: yes
+  changed_when: no
+  when:
+    - rule_6_3_3_21
+  tags:
+    - s6
+    - r6.3.3.21
+    - level2_server
+    - level2_workstation
+
+
+- name: "6.3.4.1 Ensure the audit log file directory mode is configured"
+  script:
+    cmd: rule_6_3_4_1.sh
+  register: audit_logifle_status
+  failed_when: '"PASS" not in audit_logifle_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_6_3_4_1
+  tags:
+    - level2_server
+    - level2_workstation
+    - s6
+    - r6.3.4.1
+
+
+- name: "6.3.4.2 Ensure audit log files mode is configured"
+  script:
+    cmd: rule_6_3_4_2.sh
+  register: audit_logifle_status
+  failed_when: '"PASS" not in audit_logifle_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_6_3_4_2
+  tags:
+    - level2_server
+    - level2_workstation
+    - s6
+    - r6.3.4.2
+
+  
+- name: "6.3.4.3 Ensure audit log files owner is configured"
+  script:
+    cmd: rule_6_3_4_3.sh
+  register: audit_logifle_status
+  failed_when: '"PASS" not in audit_logifle_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_6_3_4_3
+  tags:
+    - level2_server
+    - level2_workstation
+    - s6
+    - r6.3.4.3
+
+
+- name: "6.3.4.4 Ensure audit log files group owner is configured"
+  script:
+    cmd: rule_6_3_4_4.sh
+  register: audit_logifle_status
+  failed_when: '"PASS" not in audit_logifle_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_6_3_4_4
+  tags:
+    - level2_server
+    - level2_workstation
+    - s6
+    - r6.3.4.4
+
+- name: "6.3.4.5 Ensure audit configuration files mode is configured"
+  script:
+    cmd: rule_6_3_4_5.sh
+  register: audit_logifle_status
+  failed_when: '"PASS" not in audit_logifle_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_6_3_4_5
+  tags:
+    - level2_server
+    - level2_workstation
+    - s6
+    - r6.3.4.5
+
+- name: "6.3.4.6 Ensure audit configuration files owner is configured"
+  shell:  find /etc/audit/ -type f \( -name '*.conf' -o -name '*.rules' \) ! -user root
+  register: audit_files_owner_status
+  failed_when: audit_files_owner_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_4_6
+  tags:
+    - level2_server
+    - level2_workstation
+    - r6.3.4.6 
+    - s6
+
+- name: "6.3.4.7 Ensure audit configuration files group owner is configured"
+  shell:  find /etc/audit/ -type f \( -name '*.conf' -o -name '*.rules' \) ! -group root
+  register: audit_files_owner_status
+  failed_when: audit_files_owner_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_4_7
+  tags:
+    - level2_server
+    - level2_workstation
+    - r6.3.4.7
+    - s6
+
+
+- name: "6.3.4.8 Ensure audit tools mode is configured"
+  script:
+    cmd: rule_6_3_4_8.sh
+  register: audit_tools_mode_status
+  failed_when: '"PASS" not in audit_tools_mode_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_6_3_4_8
+  tags:
+    - level2_server
+    - level2_workstation
+    - s6
+    - r6.3.4.8
+
+- name: "6.3.4.9 Ensure audit tools owner is configured"
+  shell:  stat -Lc "%n %U" /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules | awk '$2 != "root" {print}'
+  register: audit_tools_owner_status
+  failed_when: audit_tools_owner_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_4_9
+  tags:
+    - level2_server
+    - level2_workstation
+    - r6.3.4.9
+    - s6
+
+
+- name: "6.3.4.10 Ensure audit tools group owner is configured"
+  shell:  stat -Lc "%n %G" /sbin/auditctl /sbin/aureport /sbin/ausearch /sbin/autrace /sbin/auditd /sbin/augenrules | awk '$2 != "root" {print}'
+  register: audit_tools_owner_status
+  failed_when: audit_tools_owner_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_6_3_4_10
+  tags:
+    - level2_server
+    - level2_workstation
+    - r6.3.4.10
+    - s6
+

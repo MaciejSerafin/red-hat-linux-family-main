@@ -1,0 +1,351 @@
+---
+
+- name: "7.1.1 Ensure permissions on /etc/passwd are configured"
+  shell: |
+    stat -c '%U %G %a' /etc/passwd
+  register: passwd_permissions
+  failed_when: '"root root" not in passwd_permissions.stdout or not passwd_permissions.stdout | regex_search("[0246][0-4][0-4]")'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.1
+    
+
+- name: "7.1.2 Ensure permissions on /etc/passwd- are configured"
+  shell: |
+    stat -c '%U %G %a' /etc/passwd-
+  register: passwd_permissions
+  failed_when: '"root root" not in passwd_permissions.stdout or not passwd_permissions.stdout | regex_search("[0246][0-4][0-4]")'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.2
+    
+- name: "7.1.3 Ensure permissions on /etc/group are configured"
+  shell: |
+    stat -c '%U %G %a' /etc/group
+  register: group_permissions
+  failed_when: '"root root" not in group_permissions.stdout or not group_permissions.stdout | regex_search("[0246][0-4][0-4]")'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_7_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.3
+    
+- name: "7.1.4 Ensure permissions on /etc/group- are configured"
+  shell: | 
+    stat -c '%U %G %a' /etc/group-
+  register: group_permissions
+  failed_when: '"root root" not in group_permissions.stdout or not group_permissions.stdout | regex_search("[0246][0-4][0-4]")'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_7_1_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.4
+  
+- name: "7.1.5 Ensure permissions on /etc/shadow are configured"
+  shell: |
+    stat -c '%U %G %a' /etc/shadow
+  register: shadow_permissions
+  failed_when: '"root root" not in shadow_permissions.stdout or not shadow_permissions.stdout | regex_search("[0]")'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.5
+    
+- name: "7.1.6 Ensure permissions on /etc/shadow- are configured"
+  shell: |
+    stat -Lc 'Access: (%#a/%A) Uid: ( %u/ %U) Gid: ( %g/ %G)' /etc/shadow-
+  register: shadow_permissions
+  failed_when: '"(0/----------) Uid: ( 0/ root) Gid: ( 0/ root)" not in shadow_permissions.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.6
+    
+- name: "7.1.7 Ensure permissions on /etc/gshadow are configured"
+  shell: |
+    stat -Lc 'Access: (%#a/%A) Uid: ( %u/ %U) Gid: ( %g/ %G)' /etc/gshadow
+  register: gshadow_permissions
+  failed_when:  '"(0/----------) Uid: ( 0/ root) Gid: ( 0/ root)" not in gshadow_permissions.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.7
+    
+- name: "7.1.8 Ensure permissions on /etc/gshadow- are configured"
+  shell: |
+    stat -Lc 'Access: (%#a/%A) Uid: ( %u/ %U) Gid: ( %g/ %G)' /etc/gshadow-
+  register: gshadow_permissions
+  failed_when:  '"(0/----------) Uid: ( 0/ root) Gid: ( 0/ root)" not in gshadow_permissions.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_7_1_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.8
+    
+- name: "7.1.9 Ensure permissions on /etc/shells are configured"
+  shell: |
+    stat -Lc 'Access: (%#a/%A) Uid: ( %u/ %U) Gid: ( %g/ %G)' /etc/shells
+  register: shells_permissions
+  failed_when:  '"(0644/-rw-r--r--) Uid: ( 0/ root) Gid: ( 0/ root)" not in shells_permissions.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_9
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.9
+
+
+- name: "7.1.10 Ensure permissions on /etc/security/opasswd are configured"
+  block:
+    - name: "Check permissions on /etc/security/opasswd"
+      shell: '[ -e "/etc/security/opasswd" ] && stat -Lc "%n Access: (%#a/%A) Uid: ( %u/ %U) Gid: ( %g/ %G)" /etc/security/opasswd'
+      register: opasswd_status
+      changed_when: no
+      failed_when: 
+        - opasswd_status.stdout != ""
+        - '"Access: (0600/-rw-------) Uid: ( 0/ root) Gid: ( 0/ root)" not in opasswd_status.stdout'
+    
+    - name: "Check permissions on /etc/security/opasswd.old"
+      shell: '[ -e "/etc/security/opasswd.old" ] && stat -Lc "%n Access: (%#a/%A) Uid: ( %u/ %U) Gid: ( %g/ %G)" /etc/security/opasswd.old'
+      register: opasswd_old_status
+      changed_when: no
+      failed_when: 
+        - opasswd_old_status.stdout != ""
+        - '"Access: (0600/-rw-------) Uid: ( 0/ root) Gid: ( 0/ root)" not in opasswd_old_status.stdout'
+        
+  ignore_errors: yes
+  when:
+    - rule_7_1_10
+  tags:
+    - level1_server
+    - level1_workstation
+    - r7.1.10
+    - s7
+
+
+- name: "7.1.11 Ensure world writable files and directories are secured"
+  script:
+    cmd: rule_7_1_11.sh
+  register: writable_files_status
+  failed_when: '"PASS" not in writable_files_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_11
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.11
+
+
+- name: "7.1.12 Ensure no files or directories without an owner and a group exist"
+  script:
+    cmd: rule_7_1_12.sh
+  register: no_owner_status
+  failed_when: '"PASS" not in no_owner_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_1_12
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.1.12
+
+
+# - name: "7.1.13 Ensure SUID and SGID files are reviewed"
+#   script:
+#     cmd: rule_7_1_13.sh
+#   register: suid_sgid_status
+#   failed_when: ''
+#   changed_when: no
+#   ignore_errors: yes 
+#   when:
+#     - rule_7_1_13
+#   tags:
+#     - level1_server
+#     - level1_workstation
+#     - s7
+#     - r7.1.13
+
+
+- name: "7.2.1 Ensure accounts in /etc/passwd use shadowed passwords"
+  shell: |
+    awk -F: '($2 != "x" ) { print "User: \"" $1 "\" is not set to shadowed passwords "}' /etc/passwd
+  register: shadowed_passwords_status
+  failed_when: shadowed_passwords_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_7_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r7.2.1
+    - s7
+
+
+- name: "7.2.2 Ensure /etc/shadow password fields are not empty"
+  shell: |
+    awk -F: '($2 == "" ) { print $1 " does not have a password "}' /etc/shadow
+  register: password_fields_status
+  failed_when: password_fields_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_7_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r7.2.2
+    - s7
+
+- name: "7.2.3 Ensure all groups in /etc/passwd exist in /etc/group"
+  script:
+    cmd: rule_7_2_3.sh
+  register: passw_groups_status
+  failed_when: 'passw_groups_status.stdout_lines| length > 2'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.2.3
+
+
+- name: "7.2.4 Ensure no duplicate UIDs exist"
+  script:
+    cmd: rule_7_2_4.sh
+  register: uid_duplicate_status
+  failed_when: 'uid_duplicate_status.stdout_lines| length > 2'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.2.4
+
+- name: "7.2.5 Ensure no duplicate GIDs exist"
+  script:
+    cmd: rule_7_2_5.sh
+  register: gid_duplicate_status
+  failed_when: 'gid_duplicate_status.stdout_lines| length > 2'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.2.5
+
+- name: "7.2.6 Ensure no duplicate user names exist"
+  script:
+    cmd: rule_7_2_6.sh
+  register: username_duplicate_status
+  failed_when: 'username_duplicate_status.stdout_lines| length > 2'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_2_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.2.6
+
+- name: "7.2.7 Ensure no duplicate group names exist"
+  script:
+    cmd: rule_7_2_7.sh
+  register: group_duplicate_status
+  failed_when: 'group_duplicate_status.stdout_lines| length > 2'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_2_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.2.7
+
+- name: "7.2.8 Ensure local interactive user home directories are configured"
+  script:
+    cmd: rule_7_2_8.sh
+  register: user_home_directories_status
+  failed_when: '"PASS" not in user_home_directories_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_2_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.2.8
+
+- name: "7.2.9 Ensure local interactive user dot files access is configured"
+  script:
+    cmd: rule_7_2_9.sh
+  register: user_dot_directories_status
+  failed_when: '"PASS" not in user_dot_directories_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_7_2_9
+  tags:
+    - level1_server
+    - level1_workstation
+    - s7
+    - r7.2.9

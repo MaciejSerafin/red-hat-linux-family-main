@@ -1,0 +1,1415 @@
+---
+
+- name: "5.1.1 Ensure permissions on /etc/ssh/sshd_config are configured"
+  script:
+    cmd: rule_5_1_1.sh
+  register: ssh_status
+  failed_when: '"PASS" not in ssh_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_5_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.1.1
+    
+- name: "5.1.2 | Ensure permissions on SSH private host key files are configured"
+  script:
+    cmd: rule_5_1_2.sh
+  register: ssh_status
+  failed_when: '"PASS" not in ssh_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.2
+    - s5
+    
+- name: "5.1.3 | Ensure permissions on SSH public host key files are configured"
+  script:
+    cmd: rule_5_1_3.sh
+  register: ssh_status
+  failed_when: '"PASS" not in ssh_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.3
+    - s5
+    
+
+- name: "5.1.4 | Ensure sshd Ciphers are configured"
+  block:
+    - name: 5.1.4 | Ensure sshd Ciphers are configured
+      shell: sshd -T | grep -Pi -- '^ciphers\h+\"?([^#\n\r]+,)?((3des|blowfish|cast128|aes(128|192|256))-cbc|arcfour(128|256)?|rijndael-cbc@lysator\.liu\.se|chacha20-poly1305@openssh\.com)\b'
+      register: ssh_ciphers
+      failed_when: ssh_ciphers.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+    - name: 5.1.4 | Weak Ciphers
+      debug:
+        msg: "Weak Ciphers recognized on {{ inventory_hostname }}: {{ ssh_ciphers.stdout }}"
+      when: ssh_ciphers.stdout != ""
+  ignore_errors: yes
+  when:
+    - rule_5_1_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.4
+    - s5
+
+- name: "5.1.5 Ensure sshd KexAlgorithms is configured"
+  shell: sshd -T | grep -Pi -- 'kexalgorithms\h+([^#\n\r]+,)?(diffie-hellman-group1-sha1|diffie-hellman-group14-sha1|diffie-hellman-group-exchange-sha1)\b'
+  register: ssh_kex
+  failed_when: ssh_kex.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.5
+    - s5
+
+
+- name: "5.1.6 Ensure sshd MACs are configured"
+  block:
+    - name: 5.1.6 Ensure sshd MACs are configured
+      shell: sshd -T | grep -Pi -- 'macs\h+([^#\n\r]+,)?(hmac-md5|hmac-md5-96|hmac-ripemd160|hmac-sha1-96|umac-64@openssh\.com|hmac-md5-etm@openssh\.com|hmac-md5-96-etm@openssh\.com|hmac-ripemd160-etm@openssh\.com|hmac-sha1-96-etm@openssh\.com|umac-64-etm@openssh\.com|umac-128-etm@openssh\.com)\b'
+      register: ssh_macs
+      failed_when: ssh_macs.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+    - name: 5.1.6 | Weak Macs
+      debug:
+        msg: "Weak Macs recognized on {{ inventory_hostname }}: {{ ssh_macs.stdout }}"
+      when: ssh_macs.stdout != ""
+  ignore_errors: yes
+  when:
+    - rule_5_1_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.6
+    - s5
+
+- name: "5.1.7 Ensure sshd access is configured"
+  shell: sshd -T | grep -Pi -- '^\h*(allow|deny)(users|groups)\h+\H+'
+  register: ssh_access
+  failed_when: ssh_access.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.7
+    - s5
+
+- name: "5.1.8 Ensure sshd Banner is configured"
+  shell: sshd -T | grep -Pi -- '^banner\h+\/\H+'
+  register: ssh_banner
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.8
+    - s5
+
+- name: "5.1.9 | Ensure SSH Idle Timeout Interval is configured "
+  block:
+    - name: "5.1.9 | Ensure SSH Idle Timeout Interval is configured "
+      shell: sshd -T -C user=root -C host="$(hostname)" -C addr="$(grep $(hostname) /etc/hosts | awk '{print $1}')" | grep clientaliveinterval | cut -d " " -f2
+      register: ssh_idle_status
+      failed_when: ssh_idle_status.stdout|int == 0
+      changed_when: no
+      
+    - name: "5.1.9  | Ensure SSH Idle Timeout Interval is configured "
+      shell: sshd -T -C user=root -C host="$(hostname)" -C addr="$(grep $(hostname) /etc/hosts | awk '{print $1}')" | grep clientalivecountmax | cut -d " " -f2
+      register: ssh_idle_status
+      failed_when: ssh_idle_status.stdout|int > 3
+      changed_when: no
+
+    # - name: Debug SSH Idle Timeout Interval
+    #   debug:
+    #     msg: "SSH Idle Timeout Interval status: {{ ssh_idle_status.stdout }}"
+      
+    - name: "5.1.9  | Ensure SSH Idle Timeout Interval is configured "
+      shell: grep -Ei '^\s*ClientAliveInterval\s+(0|9[0-9][1-9]|[1-9][0-9][0-9][0-9]+|1[6-9]m|[2-9][0-9]m|[1-9][0-9][0-9]+m)\b' /etc/ssh/sshd_config
+      register: ssh_idle_status
+      failed_when: ssh_idle_status.stdout | length > 1
+      changed_when: no
+      
+    - name: "5.1.9  | Ensure SSH Idle Timeout Interval is configured "
+      shell: grep -Ei '^\s*ClientAliveCountMax\s+([1-9]|[1-9][0-9]+)\b' /etc/ssh/sshd_config
+      register: ssh_idle_status
+      failed_when: ssh_idle_status.stdout | length > 1
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_9
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.9
+    - s5
+
+- name: "5.1.10 Ensure sshd DisableForwarding is enabled"
+  block:
+    - name: 5.1.10 Ensure sshd DisableForwarding is enabled
+      shell: "sshd -T | grep -i disableforwarding"
+      register: ssh_disableforwarding
+      changed_when: no
+      ignore_errors: yes
+
+    - name: 5.1.10 Audit | Verify if DisableForwarding is set to 'yes'
+      fail:
+        msg: "WARNING: DisableForwarding is NOT set to 'yes' on {{ inventory_hostname }}"
+      when: "'disableforwarding yes' not in ssh_disableforwarding.stdout"
+      failed_when: "'disableforwarding yes' not in ssh_disableforwarding.stdout"
+      changed_when: no
+
+    - name: 5.1.10 Audit Result | DisableForwarding is set to 'yes'
+      debug:
+        msg: "DisableForwarding is correctly set to 'yes' on {{ inventory_hostname }}"
+      when: "'disableforwarding yes' in ssh_disableforwarding.stdout"
+      changed_when: no  
+  ignore_errors: yes
+  when:
+    - rule_5_1_10
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.10
+    - s5
+
+- name: "5.1.11 Ensure sshd GSSAPIAuthentication is disabled"
+  block:
+    - name: 5.1.11 Ensure sshd GSSAPIAuthentication  is disabled
+      shell: "sshd -T | grep -i gssapiauthentication"
+      register: ssh_gssapiauthentication
+      changed_when: no
+      ignore_errors: yes
+
+    - name: 5.1.11 Audit | Verify if GSSAPIAuthentication is set to 'no'
+      fail:
+        msg: "WARNING: GSSAPIAuthentication is NOT set to 'no' on {{ inventory_hostname }}"
+      when: "'gssapiauthentication no' not in ssh_gssapiauthentication.stdout"
+      failed_when: "'gssapiauthentication no' not in ssh_gssapiauthentication.stdout"
+
+    - name: 5.1.11 Audit Result | GSSAPIAuthentication is set to 'no'
+      debug:
+        msg: "GSSAPIAuthentication is correctly set to 'no' on {{ inventory_hostname }}"
+      when: "'gssapiauthentication no' in ssh_gssapiauthentication.stdout"
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_11
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.11
+    - s5
+
+- name: "5.1.12 Ensure sshd HostbasedAuthentication is disabled"
+  block:
+    - name: 5.1.12 Ensure sshd HostbasedAuthentication  is disabled
+      shell: "sshd -T | grep -i hostbasedauthentication"
+      register: ssh_hostbasedauthentication
+      changed_when: no
+      ignore_errors: yes
+
+    - name: 5.1.12 Audit | Verify if HostbasedAuthentication is set to 'no'
+      fail:
+        msg: "WARNING: HostbasedAuthentication is NOT set to 'no' on {{ inventory_hostname }}"
+      when: "'hostbasedauthentication no' not in ssh_hostbasedauthentication.stdout"
+      failed_when: "'hostbasedauthentication no' not in ssh_hostbasedauthentication.stdout"
+
+    - name: 5.1.12 Audit Result | HostbasedAuthentication is set to 'no'
+      debug:
+        msg: "HostbasedAuthentication is correctly set to 'no' on {{ inventory_hostname }}"
+      when: "'hostbasedauthentication no' in ssh_hostbasedauthentication.stdout"
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_12
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.12
+    - s5
+
+- name: "5.1.13 Ensure sshd IgnoreRhosts is enabled"
+  block:
+    - name: 5.1.13 Ensure sshd IgnoreRhosts is enabled
+      shell: "sshd -T | grep -i ignorerhosts"
+      register: ssh_ignorerhosts
+      changed_when: no
+      ignore_errors: yes
+
+    - name: 5.1.13 Audit | Verify if IgnoreRhosts is set to 'yes'
+      fail:
+        msg: "WARNING: IgnoreRhosts is NOT set to 'yes' on {{ inventory_hostname }}"
+      when: "'ignorerhosts yes' not in ssh_ignorerhosts.stdout"
+      failed_when: "'ignorerhosts yes' not in ssh_ignorerhosts.stdout"
+
+    - name: 5.1.13 Audit Result | IgnoreRhosts is set to 'yes'
+      debug:
+        msg: "IgnoreRhosts is correctly set to 'yes' on {{ inventory_hostname }}"
+      when: "'ignorerhosts yes' in ssh_ignorerhosts.stdout"
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_13
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.13
+    - s5
+
+- name: "5.1.14 Ensure sshd LoginGraceTime is configured"
+  block:
+    - name: "5.1.14 Get the LoginGraceTime from sshd config"
+      shell: sshd -T | grep logingracetime
+      register: ssh_logingracetime_status
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "5.1.14 Ensure LoginGraceTime is within valid range (1-60)"
+      assert:
+        that:
+          - ssh_logingracetime_status.stdout | regex_search('logingracetime\s+(\d+)') is match
+          - (ssh_logingracetime_status.stdout | regex_search('logingracetime\s+(\d+)') | regex_replace('logingracetime\s+(\d+)', '\\1') | int) >= 1
+          - (ssh_logingracetime_status.stdout | regex_search('logingracetime\s+(\d+)') | regex_replace('logingracetime\s+(\d+)', '\\1') | int) <= 60
+      ignore_errors: yes
+    
+    - name: "5.1.14 Ensure sshd LoginGraceTime is configured"
+      shell: grep -Ei '^\s*LoginGraceTime\s+(0|6[1-9]|[7-9][0-9]|[1-9][0-9][0-9]+|[^1]m)' /etc/ssh/sshd_config
+      register: ssh_logingracetime_status
+      failed_when: ssh_logingracetime_status.stdout | length > 1
+      changed_when: no
+      ignore_errors: yes
+  ignore_errors: yes
+  when:
+    - rule_5_1_14
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.14
+    - s5
+
+
+- name: "5.1.15 Ensure sshd LogLevel is configured"
+  block: 
+    - name: "5.1.15 Ensure sshd LogLevel is configured"
+      shell: sshd -T | grep loglevel
+      register: ssh_loglevel_status
+      failed_when:
+        - '"verbose" not in ssh_loglevel_status.stdout|lower'
+        - '"info" not in ssh_loglevel_status.stdout|lower'
+      changed_when: no
+      
+    - name: "5.1.15 Ensure sshd LogLevel is configured"
+      shell: grep -i 'loglevel' /etc/ssh/sshd_config | grep -Evi '(VERBOSE|INFO)'
+      register: ssh_loglevel_status
+      failed_when: ssh_loglevel_status.stdout | length > 1
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_15
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.15
+    - s5
+
+- name: "5.1.16 Ensure sshd MaxAuthTries is configured "
+  block:  
+    - name: "5.1.16 Ensure sshd MaxAuthTries is configured"
+      shell: sshd -T -C user=root -C host="$(hostname)" -C addr="$(grep $(hostname) /etc/hosts | awk '{print $1}')" | grep maxauthtries
+      register: ssh_maxtries_status
+      failed_when: ssh_maxtries_status.stdout|int > 0 and ssh_maxtries_status.stdout|int < 5
+      changed_when: no
+    
+    - name: "5.1.16 Ensure sshd MaxAuthTries is configured"
+      shell: grep -Ei '^\s*maxauthtries\s+([5-9]|[1-9][0-9]+)' /etc/ssh/sshd_config
+      register: ssh_maxtries_status
+      failed_when: ssh_maxtries_status.stdout | length > 1
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_16
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.16
+    - s5
+
+    
+- name: "5.1.17 | Ensure SSH MaxStartups is configured"
+  shell: grep -Ei '^\s*maxstartups\s+(((1[1-9]|[1-9][0-9][0-9]+):([0-9]+):([0-9]+))|(([0-9]+):(3[1-9]|[4-9][0-9]|[1-9][0-9][0-9]+):([0-9]+))|(([0-9]+):([0-9]+):(6[1-9]|[7-9][0-9]|[1-9][0-9][0-9]+)))' /etc/ssh/sshd_config
+  register: ssh_maxstartup_status
+  failed_when: ssh_maxstartup_status.stdout | length > 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_17
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.17
+    - s5
+
+- name: "5.1.18 Ensure sshd MaxSessions is configured"
+  block:  
+    - name: "5.1.18 Ensure sshd MaxSessions is configured"
+      shell: sshd -T -C user=root -C host="$(hostname)" -C addr="$(grep $(hostname) /etc/hosts | awk '{print $1}')" | grep -i maxsessions
+      register: ssh_maxsessions_status
+      failed_when: ssh_maxsessions_status.stdout|int > 0 and ssh_maxsessions_status.stdout|int < 11
+      changed_when: no
+    
+
+    - name: "5.1.18 Ensure sshd MaxSessions is configured"
+      shell: grep -Ei '^\s*MaxSessions\s+(1[1-9]|[2-9][0-9]|[1-9][0-9][0-9]+)' /etc/ssh/sshd_config
+      register: ssh_maxsessions_status
+      failed_when: ssh_maxsessions_status.stdout | length > 1
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_18
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.18
+    - s5
+
+- name: "5.1.19 Ensure sshd PermitEmptyPasswords is disabled"
+  block:  
+    - name: "5.1.19 Ensure sshd PermitEmptyPasswords is disabled"
+      shell: sshd -T -C user=root -C host="$(hostname)" -C addr="$(grep $(hostname) /etc/hosts | awk '{print $1}')" | grep permitemptypasswords
+      register: ssh_emptypass_status
+      failed_when: '"permitemptypasswords no" not in ssh_emptypass_status.stdout'
+      changed_when: no
+    
+    - name: "5.1.19 Ensure sshd PermitEmptyPasswords is disabled"
+      shell: grep -Ei '^\s*PermitEmptyPasswords\s+yes' /etc/ssh/sshd_config
+      register: ssh_emptypass_status
+      failed_when: ssh_emptypass_status.stdout | length  > 1
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_19
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.19
+    - s5
+
+- name: "5.1.20 Ensure sshd PermitRootLogin is disabled" 
+  shell: sshd -T | grep permitrootlogin
+  register: ssh_root_login_status
+  failed_when: '"permitrootlogin no" not in ssh_root_login_status.stdout|lower'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_20
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.20
+    - s5
+
+- name: "5.1.21 Ensure sshd PermitUserEnvironment is disabled"
+  block:  
+    - name: "5.1.21 Ensure sshd PermitUserEnvironment is disabled"
+      shell:  sshd -T -C user=root -C host="$(hostname)" -C addr="$(grep $(hostname) /etc/hosts | awk '{print $1}')" | grep permituserenvironment
+      register: ssh_userenv_status
+      failed_when: '"permituserenvironment no" not in ssh_userenv_status.stdout'
+      changed_when: no
+    
+    - name: "5.1.21 Ensure sshd PermitUserEnvironment is disabled"
+      shell: grep -Ei '^\s*PermitUserEnvironment\s+yes' /etc/ssh/sshd_config
+      register: ssh_userenv_status
+      failed_when: ssh_userenv_status.stdout | length  > 1
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_1_21
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.21
+    - s5
+
+- name: "5.1.22 Ensure sshd UsePAM is enabled"
+  block:
+    - name: "5.1.22 Ensure sshd UsePAM is enabled"
+      shell: sshd -T -C user=root -C host="$(hostname)" -C addr="$(grep $(hostname) /etc/hosts | awk '{print $1}')" | grep -i usepam
+      register: ssh_pam_status
+      failed_when: '"usepam yes" not in ssh_pam_status.stdout'
+      changed_when: no
+    
+    - name: "5.1.22 Ensure sshd UsePAM is enabled"
+      shell: grep -Ei '^\s*UsePAM\s+no' /etc/ssh/sshd_config
+      register: ssh_pam_status
+      failed_when: ssh_pam_status.stdout | length  > 1
+      changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_5_1_22
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.1.22
+    - s5    
+    
+- name: "5.2.1 | Ensure sudo is installed  "
+  shell: |
+     dnf list installed | grep sudo
+  register: sudo_status
+  failed_when: sudo_status.stdout|length < 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.1
+    - s5
+
+- name: "5.2.2 | Ensure sudo commands use pty "
+  shell: grep -rPi '^\h*Defaults\h+([^#\n\r]+,)?\h*use_pty(\h*,\h*[^#\n\r]*)?\h*(#.*)?$' /etc/sudoers*
+  register: pty_status
+  failed_when: '"Defaults use_pty" not in pty_status.stdout'
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.2
+    - s5
+    
+- name: "5.2.3 | Ensure sudo log file exists "
+  shell: grep -rPsi "^\h*Defaults\h+([^#]+,\h*)?logfile\h*=\h*(\"|\')?\H+(\"|\')?(,\h*\H+\h*)*\h*(#.*)?$" /etc/sudoers*
+  changed_when: no
+  ignore_errors: yes
+  register: sudologfile
+  failed_when: sudo_logfile not in sudologfile.stdout
+  when:
+    - rule_5_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.3
+    - s5
+    
+- name: "5.2.4 | Ensure users must provide password for escalation "
+  shell:  grep -r "^[^#].*NOPASSWD" /etc/sudoers*
+  register: escalation_password_status
+  failed_when: escalation_password_status.stdout | length > 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.4
+    - s5
+    
+- name: "5.2.5 |  Ensure re-authentication for privilege escalation is not disabled globally "
+  shell:  grep -r "^[^#].*\!authenticate" /etc/sudoers*
+  register: escalation_status
+  failed_when: escalation_status.stdout | length > 1
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.5
+    - s5
+    
+- name: "5.2.6 Ensure sudo authentication timeout is configured correctly "
+  block:
+    - name: "5.2.6 |  Ensure sudo authentication timeout is configured correctly"
+      shell:  grep -roP "timestamp_timeout=\K[0-9]*" /etc/sudoers*
+      changed_when: no
+      register: sudo_timestamp_timeout
+      failed_when: sudo_timestamp_timeout.stdout_lines | length > 0
+      
+    - name: "5.2.6 |  Ensure sudo authentication timeout is configured correctly"
+      shell:  sudo -V | grep "Authentication timestamp timeout:" | cut -d " " -f4 | cut -d "." -f1
+      register: sudo_timestamp_timeout
+      failed_when: sudo_timestamp_timeout.stdout|int > 15
+      changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_2_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.6
+    - s5
+    
+- name: "5.2.7 |  Ensure access to the su command is restricted "
+  block:
+    - name: "5.2.7 |  Ensure access to the su command is restricted |  create group"
+      shell: >
+        grep -Pi '^\h*auth\h+(?:required|requisite)\h+pam_wheel\.so\h+(?:[^#\n\r]+\h+)?((?!\2)(use_uid\b|group=\H+\b))\h+(?:[^#\n\r]+\h+)?((?!\1)(use_uid\b|group=\H+\b))(\h+.*)?$' /etc/pam.d/su
+      register: su_access_status
+      failed_when: sudo_group|string not in su_access_status.stdout
+      changed_when: no
+      
+    - name: "5.2.7 | Ensure access to the su command is restricted | check group members"
+      shell: "grep {{ sudo_group }} /etc/group"
+      register: su_access_status
+      failed_when: >
+        su_access_status.stdout | regex_search("{{ sudo_group }}:[^:]*:[^:]*:[^:]+:")
+      changed_when: no
+
+  ignore_errors: yes
+  when:
+    - rule_5_2_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.2.7
+    - s5   
+
+- name: "5.3.1.1 Ensure latest version of PAM is installed"
+  shell: |
+    rpm -q pam
+  register: pam_status
+  failed_when: pam_status.rc != 0 or pam_status.stdout is not search('pam-(1\.5\.1-19|1\.[5-9]\..*|[2-9]\..*)')
+  changed_when: no
+  when:
+    - rule_5_3_1_1
+  tags:
+    - level1_workstation
+    - level1_server
+    - s5
+    - r5.3.1.1
+
+
+- name: "5.3.1.2 Ensure latest version of authselect is installed"
+  shell: |
+    rpm -q authselect
+  register: authselect_status
+  failed_when: authselect_status.rc != 0 or authselect_status.stdout is not search('authselect-(1\.2\.6-2|1\.2\.[6-9]\..*|1\.[3-9]\..*|[2-9]\..*)')
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_1_2
+  tags:
+    - level1_workstation
+    - level1_server
+    - s5
+    - r5.3.1.2
+
+- name: "5.3.1.3 Ensure latest version of libpwquality is installed" 
+  shell: |
+    rpm -q libpwquality 
+  register: libpwquality_status
+  failed_when: libpwquality_status.rc != 0 or libpwquality_status.stdout is not search('libpwquality-(1\.4\.4-8|1\.4\.[5-9]\..*|1\.[5-9]\..*|[2-9]\..*)')
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_1_3
+  tags:
+    - level1_workstation
+    - level1_server
+    - s5
+    - r5.3.1.3
+
+
+- name: "5.3.2.1 Ensure authselect profile includes pwquality, pwhistory, faillock, and unix modules"
+  shell: grep -P -- '\b(pam_pwquality\.so|pam_pwhistory\.so|pam_faillock\.so|pam_unix\.so)\b' /etc/authselect/"$(head -1 /etc/authselect/authselect.conf)"/{system,password}-auth
+  register: authselect_profile_status
+  failed_when: authselect_profile_status.stdout == ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.2.1
+    - s5
+
+- name: "5.3.2.2 Ensure pam_faillock module is enabled"
+  shell: grep -P -- '\bpam_faillock.so\b' /etc/pam.d/{password,system}-auth
+  register: pam_faillock_profile_status
+  failed_when: pam_faillock_profile_status.stdout == ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.2.2
+    - s5
+
+- name: "5.3.2.3 Ensure pam_pwquality module is enabled"
+  shell: grep -P -- '\bpam_pwquality\.so\b' /etc/pam.d/{password,system}-auth
+  register: pam_pwquality_profile_status
+  failed_when: pam_pwquality_profile_status.stdout == ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.2.3
+    - s5
+
+- name: "5.3.2.4 Ensure pam_pwhistory module is enabled"
+  shell: grep -P -- '\bpam_pwhistory\.so\b' /etc/pam.d/{password,system}-auth
+  register: pam_pwhistory_profile_status
+  failed_when: pam_pwhistory_profile_status.stdout == ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.2.4
+    - s5
+
+- name: "5.3.2.5 Ensure pam_unix module is enabled"
+  shell: grep -P -- '\bpam_unix\.so\b' /etc/pam.d/{password,system}-auth
+  register: pam_unix_profile_status
+  failed_when: pam_unix_profile_status.stdout == ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.2.5
+    - s5
+
+
+- name: "5.3.3.1.1 Ensure password failed attempts lockout is configured"
+  block: 
+    - name: "5.3.3.1.1 Ensure password failed attempts lockout is configured"
+      shell:  | 
+        grep -Pi -- '^\h*deny\h*=\h*[1-5]\b' /etc/security/faillock.conf
+      register: faillock_deny_status
+      failed_when: "'deny = {{ max_failed_attempts }}' not in faillock_deny_status.stdout"
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.1.1 Ensure pam_faillock deny argument is not incorrectly set"
+      shell: |
+        grep -Pi -- '^\h*auth\h+(requisite|required|sufficient)\h+pam_faillock\.so\h+([^#\n\r]+\h+)?deny\h*=\h*(0|[6-9]|[1-9][0-9]+)\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: faillock2_deny_status
+      failed_when: faillock2_deny_status.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.1.1
+    - s5
+
+
+- name: "5.3.3.1.2 Ensure password unlock time is configured"
+  block: 
+    - name: "5.3.3.1.2 Ensure password unlock time is configured"
+      shell:  | 
+        grep -Pi -- '^\h*unlock_time\h*=\h*(0|9[0-9][0-9]|[1-9][0-9]{3,})\b' /etc/security/faillock.conf
+      register: password_unlock_time_status
+      failed_when: "'unlock_time = {{ unlock_account_time }}' not in password_unlock_time_status.stdout"
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.1.2 Ensure password unlock time is configured"
+      shell: |
+        grep -Pi -- '^\h*auth\h+(requisite|required|sufficient)\h+pam_faillock\.so\h+([^#\n\r]+\h+)?unlock_time\h*=\h*([1-9]|[1-9][0-9]|[1-8][0-9][0-9])\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_unlock_time_status2
+      failed_when: password_unlock_time_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.1.2
+    - s5
+
+
+- name: "5.3.3.1.3 Ensure password failed attempts lockout includes root account"
+  block: 
+    - name: "5.3.3.1.3 Ensure password failed attempts lockout includes root account"
+      shell: |
+        grep -Pi -- '^\h*(even_deny_root|root_unlock_time)\h*=\h*\d+\b' /etc/security/faillock.conf
+      register: password_unlock_time_status
+      failed_when: >
+        not (
+          (password_unlock_time_status.stdout is not search('even_deny_root\s*=\s*\d+')) or
+          (password_unlock_time_status.stdout is search('root_unlock_time\s*=\s*([6-9]?[0-9])\b'))
+        )
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "5.3.3.1.3 Ensure password failed attempts lockout includes root account"
+      shell: |
+        grep -Pi -- '^\h*root_unlock_time\h*=\h*([1-9]|[1-5][0-9])\b' /etc/security/faillock.conf
+      register: password_unlock_time_status2
+      failed_when: password_unlock_time_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.1.3 Ensure password failed attempts lockout includes root account"
+      shell: |
+        grep -Pi -- '^\h*auth\h+([^#\n\r]+\h+)pam_faillock\.so\h+([^#\n\r]+\h+)?root_unlock_time\h*=\h*([1-9]|[1-5][0-9])\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_unlock_time_status3
+      failed_when: password_unlock_time_status3.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.1.3
+    - s5
+
+
+- name: "5.3.3.2.1 Ensure password number of changed characters is configured"
+  block: 
+    - name: "5.3.3.2.1 Ensure password number of changed characters is configured"
+      shell: |
+        grep -Psi -- '^\h*difok\h*=\h*([2-9]|[1-9][0-9]+)\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf
+      register: password_number_status
+      failed_when: >
+        not (
+          password_number_status.stdout is search('^\S+:\s*difok\s*=\s*([2-9]|[1-9][0-9]+)')
+        )
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "5.3.3.2.1 Ensure password number of changed characters is configured"
+      shell: |
+        grep -Psi -- '^\h*password\h+(requisite|required|sufficient)\h+pam_pwquality\.so\h+([^#\n\r]+\h+)?difok\h*=\h*([0-1])\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_number_status2
+      failed_when: password_number_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.2.1
+    - s5
+
+- name: "5.3.3.2.2 Ensure password length is configured"
+  block: 
+    - name: "5.3.3.2.2 Ensure password length is configured"
+      shell:  | 
+        grep -Psi -- '^\h*minlen\h*=\h*(1[4-9]|[2-9][0-9]|[1-9][0-9]{2,})\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf
+      register: password_length_status
+      failed_when: >
+        not (
+          password_length_status.stdout is search('^\S+:\s*minlen\s*=\s*([1][4-9]|[2-9][1-9]+)')
+        )
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.2.2 Ensure password length is configured"
+      shell: |
+        grep -Psi -- '^\h*password\h+(requisite|required|sufficient)\h+pam_pwquality\.so\h+([^#\n\r]+\h+)?minlen\h*=\h*([0-9]|1[0-3])\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_length_status2
+      failed_when: password_length_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.2.2
+    - s5
+
+- name: "5.3.3.2.3 Ensure password complexity is configured"
+  block: 
+    - name: "5.3.3.2.3 Ensure password complexity is configured"
+      shell: |
+        grep -Psi -- '^\h*(minclass|[dulo]credit)\s*=\s*-?\d+\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf
+      register: password_complexity_status
+      failed_when: >
+        not (password_complexity_status.stdout is search('minclass\s*=\s*-?\d+')) or
+        not (password_complexity_status.stdout is search('dcredit\s*=\s*-?\d+')) or
+        not (password_complexity_status.stdout is search('ucredit\s*=\s*-?\d+')) or
+        not (password_complexity_status.stdout is search('ocredit\s*=\s*-?\d+')) or
+        not (password_complexity_status.stdout is search('lcredit\s*=\s*-?\d+'))
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "5.3.3.2.3 Ensure password complexity is configured in PAM"
+      shell: |
+        grep -Psi -- '^\h*password\h+(requisite|required|sufficient)\h+pam_pwquality\.so\h+([^#\n\r]+\h+)?(minclass\s*=\s*-?\d+|[dulo]credit\s*=\s*-?\d+)\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_complexity_status2
+      failed_when: password_complexity_status2.stdout | search('(minclass\s*=\s*-?[0-3]|[dulo]credit\s*=\s*-?[0-9]+)') is defined
+      changed_when: no
+      ignore_errors: yes
+
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.2.3
+    - s5
+
+       
+
+- name: "5.3.3.2.4 Ensure password same consecutive characters is configured"
+  block: 
+    - name: "5.3.3.2.4 Ensure password same consecutive characters is configured"
+      shell:  | 
+        grep -Psi -- '^\h*maxrepeat\h*=\h*[1-3]\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf
+      register: password_charachters_status
+      failed_when: >
+        not (
+            password_charachters_status.stdout is search('^\S+:\s*maxrepeat\s*=\s*([1-3]+)')
+          )
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.2.4 Ensure password same consecutive characters is configured"
+      shell: |
+        grep -Psi -- '^\h*password\h+(requisite|required|sufficient)\h+pam_pwquality\.so\h+([^#\n\r]+\h+)?maxrepeat\h*=\h*(0|[4-9]|[1-9][0-9]+)\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_charachters_status2
+      failed_when: password_charachters_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.2.4
+    - s5
+
+- name: "5.3.3.2.5 Ensure password maximum sequential characters is configured"
+  block: 
+    - name: "5.3.3.2.5 Ensure password maximum sequential characters is configured"
+      shell:  | 
+        grep -Psi -- '^\h*maxsequence\h*=\h*[1-3]\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf
+      register: password_max_sequence_status
+      failed_when: >
+        not (
+            password_max_sequence_status.stdout is search('^\S+:\s*maxsequence\s*=\s*([1-3]+)')
+          )
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.2.5 Ensure password maximum sequential characters is configured"
+      shell: |
+        grep -Psi -- '^\h*password\h+(requisite|required|sufficient)\h+pam_pwquality\.so\h+([^#\n\r]+\h+)?maxsequence\h*=\h*(0|[4-9]|[1-9][0-9]+)\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_max_sequence_status2
+      failed_when: password_max_sequence_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.2.5
+    - s5
+
+- name: "5.3.3.2.6 Ensure password dictionary check is enabled"
+  block: 
+    - name: "5.3.3.2.6 Ensure password dictionary check is enabled"
+      shell: |
+        grep -Psi -- '^\h*dictcheck\h*=\h*0\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf
+      register: password_max_sequence_status
+      failed_when: password_max_sequence_status.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.2.6 Ensure password dictionary check is enabled"
+      shell: |
+        grep -Psi -- '^\h*password\h+(requisite|required|sufficient)\h+pam_pwquality\.so\h+([^#\n\r]+\h+)?dictcheck\h*=\h*0\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_max_sequence_status2
+      failed_when: password_max_sequence_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_2_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.2.6
+    - s5
+
+- name: "5.3.3.2.7 Ensure password quality is enforced for the root user"
+  shell:  grep -Psi -- '^\h*enforce_for_root\b' /etc/security/pwquality.conf /etc/security/pwquality.conf.d/*.conf
+  register: password_quality_status
+  failed_when: "'enforce_for_root' not in password_quality_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_2_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.2.7
+    - s5
+
+- name: "5.3.3.3.1 Ensure password history remember is configured"
+  block: 
+    - name: "5.3.3.3.1 Ensure password history remember is configured"
+      shell:  | 
+        grep -Pi -- '^\h*remember\h*=\h*(2[4-9]|[3-9][0-9]|[1-9][0-9]{2,})\b' /etc/security/pwhistory.conf
+      register: password_history_status
+      failed_when: >
+        not (
+          password_history_status.stdout is search('remember\s*=\s*(2[4-9]|[3-9][0-9]+)')
+        )
+
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.3.3.3.1 Ensure password history remember is configured"
+      shell: |
+        grep -Pi -- '^\h*password\h+(requisite|required|sufficient)\h+pam_pwhistory\.so\h+([^#\n\r]+\h+)?remember=(2[0-3]|1[0-9]|[0-9])\b' /etc/pam.d/system-auth /etc/pam.d/password-auth
+      register: password_history_status2
+      failed_when: password_history_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_3_3_3_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.3.1
+    - s5
+
+
+- name: "5.3.3.3.2 Ensure password history is enforced for the root user"
+  shell:  grep -Pi -- '^\h*enforce_for_root\b' /etc/security/pwhistory.conf
+  register: password_history_status
+  failed_when: "'enforce_for_root' not in password_history_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_3_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.3.2
+    - s5
+
+
+
+- name: "5.3.3.3.3 Ensure pam_pwhistory includes use_authtok"
+  shell:  grep -P -- '^\h*password\h+([^#\n\r]+)\h+pam_pwhistory\.so\h+([^#\n\r]+\h+)?use_authtok\b' /etc/pam.d/{password,system}-auth
+  register: pam_pwhistory_status
+  failed_when: "'use_authtok' not in pam_pwhistory_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_3_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.3.3
+    - s5
+
+- name: "5.3.3.4.1 Ensure pam_unix does not include nullok"
+  shell:  grep -P -- '^\h*(auth|account|password|session)\h+(requisite|required|sufficient)\h+pam_unix\.so\b' /etc/pam.d/{password,system}-auth
+  register: pam_unix_status
+  failed_when: "'nullok' in pam_unix_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_4_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.4.1
+    - s5
+
+- name: "5.3.3.4.2 Ensure pam_unix does not include remember"
+  shell:  grep -Pi '^\h*password\h+([^#\n\r]+\h+)?pam_unix\.so\b' /etc/pam.d/{password,system}-auth | grep -Pv '\bremember=\d\b'
+  register: pam_unix2_status
+  failed_when: "'remember' in pam_unix2_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_4_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.4.2
+    - s5
+
+- name: "5.3.3.4.3 Ensure pam_unix includes a strong password hashing algorithm"
+  shell:  grep -P -- '^\h*password\h+([^#\n\r]+)\h+pam_unix\.so\h+([^#\n\r]+\h+)?(sha512|yescrypt)\b' /etc/pam.d/{password,system}-auth
+  register: pam_hashing_algorithm_status
+  failed_when: 
+    - "'sha512' not in pam_hashing_algorithm_status.stdout"
+    - "'yescrypt' not in pam_hashing_algorithm_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_4_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.4.3
+    - s5
+
+- name: "5.3.3.4.4 Ensure pam_unix includes use_authtok"
+  shell:  grep -P -- '^\h*password\h+([^#\n\r]+)\h+pam_unix\.so\h+([^#\n\r]+\h+)?use_authtok\b' /etc/pam.d/{password,system}-auth
+  register: pam_unix_authtok_status
+  failed_when: "'use_authtok' not in pam_unix_authtok_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_3_3_4_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.3.3.4.4
+    - s5
+
+
+- name: "5.4.1.1 Ensure password expiration is configured"
+  block: 
+    - name: "5.4.1.1 Ensure password expiration is configured"
+      shell:  | 
+        grep -Pi -- '^\h*PASS_MAX_DAYS\h+\d+\b' /etc/login.defs
+      register: password_expiration_status
+      failed_when: "'PASS_MAX_DAYS\t{{ PASS_MAX_DAYS_value }}' not in password_expiration_status.stdout"
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.4.1.1 Ensure password expiration is configured"
+      shell: |
+        awk -F: '($2~/^\$.+\$/) {if($5 > 365 || $5 < 1)print "User: " $1 " PASS_MAX_DAYS: " $5}' /etc/shadow
+      register: password_expiration_status2
+      failed_when: password_expiration_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_4_1_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.1
+    - s5
+
+
+- name: "5.4.1.2 Ensure minimum password days is configured"
+  block: 
+    - name: "5.4.1.2 Ensure minimum password days is configured"
+      shell:  | 
+        grep -Pi -- '^\h*PASS_MIN_DAYS\h+\d+\b' /etc/login.defs
+      register: minimum_password_status
+      failed_when: "'PASS_MIN_DAYS\t{{ PASS_MIN_DAYS_value }}' not in minimum_password_status.stdout"
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.4.1.2 Ensure minimum password days is configured"
+      shell: |
+        awk -F: '($2~/^\$.+\$/) {if($4 < 1)print "User: " $1 " PASS_MIN_DAYS: " $4}' /etc/shadow
+      register: minimum_password_status2
+      failed_when: minimum_password_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_4_1_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.2
+    - s5
+
+
+- name: "5.4.1.3 Ensure password expiration warning days is configured"
+  block: 
+    - name: "5.4.1.3 Ensure password expiration warning days is configured"
+      shell:  | 
+        grep -Pi -- '^\h*PASS_WARN_AGE\h+\d+\b' /etc/login.defs
+      register: password_expiration_warning_status
+      failed_when: "'PASS_WARN_AGE {{ PASS_WARN_AGE_value }}' not in password_expiration_warning_status.stdout"
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.4.1.3 Ensure password expiration warning days is configured"
+      shell: |
+        awk -F: '($2~/^\$.+\$/) {if($6 < 7)print "User: " $1 " PASS_WARN_AGE: " $6}' /etc/shadow
+      register: password_expiration_warning_status2
+      failed_when: password_expiration_warning_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_4_1_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.3
+    - s5
+
+- name: "5.4.1.4 Ensure strong password hashing algorithm is configured"
+  shell:  grep -Pi -- '^\h*ENCRYPT_METHOD\h+(SHA512|yescrypt)\b' /etc/login.defs
+  register: strong_password_hashing_status
+  failed_when: 
+    - "'SHA512' not in strong_password_hashing_status.stdout"
+    - "'YESCRYPT' not in strong_password_hashing_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_1_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.4
+    - s5
+
+- name: "5.4.1.5 Ensure inactive password lock is configured"
+  block: 
+    - name: "5.4.1.5 Ensure inactive password lock is configured"
+      shell:  | 
+        useradd -D | grep INACTIVE
+      register: inactive_password_lock_status
+      failed_when: "'INACTIVE={ INACTIVE_value }' not in inactive_password_lock_status.stdout"
+      changed_when: no
+      ignore_errors: yes
+    - name: "5.4.1.5 Ensure inactive password lock is configured"
+      shell: |
+        awk -F: '($2~/^\$.+\$/) {if($6 < 7)print "User: " $1 " PASS_WARN_AGE: " $6}' /etc/shadow
+      register: inactive_password_lock_status2
+      failed_when: inactive_password_lock_status2.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+  when:
+    - rule_5_4_1_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.5
+    - s5
+
+- name: 5.4.1.6  Ensure all users last password change date is in the past
+  shell: |
+    while IFS= read -r l_user; do
+      l_change=$(date -d "$(chage --list $l_user | grep '^Last password change' | cut -d: -f2 | grep -v 'never$')" +%s)
+      if [[ "$l_change" -gt "$(date +%s)" ]]; then
+        echo "User: \"$l_user\" last password change was \"$(chage --list $l_user | grep '^Last password change' | cut -d: -f2)\""
+      fi
+    done < <(awk -F: '$2~/^\$.+\$/{print $1}' /etc/shadow)
+  become: yes
+  register: passwd_change_check
+  ignore_errors: yes
+  changed_when: no
+  when:
+    - rule_5_4_1_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.1.6
+    - s5
+
+- name: "5.4.2.1 Ensure root is the only UID 0 account"
+  shell: |
+    awk -F: '($3 == 0) { print $1 }' /etc/passwd
+  register: uid_0_accounts_status
+  failed_when: "'root' not in uid_0_accounts_status.stdout and uid_0_accounts_status.stdout | length > 4"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_2_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.1
+    - s5
+
+
+- name: "5.4.2.2 Ensure root is the only GID 0 account"
+  shell: |
+    awk -F: '($1 !~ /^(sync|shutdown|halt|operator)/ && $4=="0") {print $1":"$4}' /etc/passwd
+  register: gid_0_accounts_status
+  failed_when: "'root:0' not in gid_0_accounts_status.stdout and gid_0_accounts_status.stdout | length > 6"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_2_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.2
+    - s5
+
+- name: "5.4.2.3 Ensure group root is the only GID 0 group"
+  shell: |
+    awk -F: '$3=="0"{print $1":"$3}' /etc/group
+  register: gid_0_group_status
+  failed_when: "'root:0' not in gid_0_group_status.stdout and gid_0_group_status.stdout | length > 6"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_2_3
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.3
+    - s5
+
+- name: "5.4.2.4 Ensure root account access is controlled"
+  shell: |
+    passwd -S root | awk '$2 ~ /^P/ {print "User: \"" $1 "\" Password is set"}'
+  register: root_account_status
+  failed_when: "'Password is set' not in root_account_status.stdout"
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_2_4
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.4
+    - s5
+
+
+- name: "5.4.2.5 Ensure root path integrity"
+  script:
+    cmd: rule_5_4_2_5.sh
+  register: rp_status
+  failed_when: '"PASS" not in rp_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_5_4_2_5
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.4.2.5
+
+- name: "5.4.2.6 Ensure root user umask is configured"
+  shell: |
+    grep -Psi -- '^\h*umask\h+(([0-7][0-7][01][0-7]\b|[0-7][0-7][0-7][0-6]\b)|([0-7][01][0-7]\b|[0-7][0-7][0-6]\b)|(u=[rwx]{1,3},)?(((g=[rx]?[rx]?w[rx]?[rx]?\b)(,o=[rwx]{1,3})?)|((g=[wrx]{1,3},)?o=[wrx]{1,3}\b)))' /root/.bash_profile /root/.bashrc
+  register: root_mask_status
+  failed_when: root_mask_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_2_6
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.2.6
+    - s5
+
+
+- name: "5.4.2.7 Ensure system accounts do not have a valid login shell"
+  block:
+    - name: "5.4.2.7 Ensure system accounts do not have a valid login shell"
+      shell: |
+        l_valid_shells="^($(awk -F\/ '$NF != "nologin" {print}' /etc/shells | sed -rn '/^\//{s,/,\\\\/,g;p}' | paste -s -d '|' - ))$"
+        awk -v pat="$l_valid_shells" -F: '($1!~/^(root|halt|sync|shutdown|nfsnobody)$/ && ($3<'"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"' || $3 == 65534) && $(NF) ~ pat) {print "Service account: \"" $1 "\" has a valid shell: " $7}' /etc/passwd
+      register: login_shell_status
+      failed_when: login_shell_status.stdout != ""
+      changed_when: no
+      ignore_errors: yes
+
+    - name: "5.4.2.7 Ensure system accounts do not have a valid login shell"
+      debug:
+        var: login_shell_status.stdout
+      when: login_shell_status.stdout != ""
+      ignore_errors: yes
+
+  ignore_errors: yes
+  when:
+    - rule_5_4_2_7
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.4.2.7
+
+
+- name: "5.4.2.8 Ensure accounts without a valid login shell are locked"
+  script:
+    cmd: rule_5_4_2_8.sh
+  register: valid_shell_status
+  failed_when: valid_shell_status.stdout is defined and valid_shell_status.stdout | length > 2
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_5_4_2_8
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.4.2.8
+
+- name: "5.4.3.1 Ensure nologin is not listed in /etc/shells"
+  shell: |
+    grep -Ps '^\h*([^#\n\r]+)?\/nologin\b' /etc/shells
+  register: no_login_status
+  failed_when: no_login_status.stdout != ""
+  changed_when: no
+  ignore_errors: yes
+  when:
+    - rule_5_4_3_1
+  tags:
+    - level1_server
+    - level1_workstation
+    - r5.4.3.1
+    - s5
+
+
+- name: "5.4.3.2 Ensure default user shell timeout is configured"
+  script:
+    cmd: rule_5_4_3_2.sh
+  register: shell_timeout_status
+  failed_when: '"PASS" not in shell_timeout_status.stdout'
+  changed_when: no
+  ignore_errors: yes 
+  when:
+    - rule_5_4_3_2
+  tags:
+    - level1_server
+    - level1_workstation
+    - s5
+    - r5.4.3.2
+
