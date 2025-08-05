@@ -2,8 +2,8 @@
 # defaults file for cis-centos
 
 create_user: false
-uusername: csadmin
-upassword: '7Lsm3RHKv94^u3r_Uat&'
+uusername: randomname
+upassword: 'randompassword'
 
 #
 section_1: true
