@@ -92,8 +92,8 @@ If you still want to run the script as root, you should change the 'create_user'
 Please remember to change the credentials, if you decide to use them. 
 ```
 create_user: false
-uusername: csadmin
-upassword: '7Lsm3RHKv94^u3r_Uat&'
+uusername: randomuser
+upassword: 'randompassword'
 
 ```
 
