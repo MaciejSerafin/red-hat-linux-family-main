@@ -1,7 +1,4 @@
 ---
-- hosts: localhost
-  connection: local
-  become: yes
-
-  roles:
-    - hardening
+- hosts: hardening_hosts
+ roles:
+    - roles/hardening
