@@ -1,4 +1,4 @@
----
 - hosts: hardening_hosts
- roles:
-    - roles/hardening
+  become: true
+  roles:
+    - hardening
